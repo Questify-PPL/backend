@@ -22,7 +22,7 @@ Publish:
   services:
     - docker:dind
   dependencies:
-    - build
+    - Build
   before_script:
     - docker login -u $REGISTRY_USER -p $REGISTRY_PASS
   script:
