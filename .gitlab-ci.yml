@@ -34,6 +34,8 @@ Publish:
   script:
     - docker build -t $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG .
     - docker push $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG
+  tags:
+    - dind
   only:
     - main
 
