@@ -8,6 +8,9 @@ variables:
   GCP_USERNAME: $GCP_USERNAME
   GCP_STATIC_IP: $GCP_STATIC_IP
 
+before_script:
+  - yarn global add @nestjs/cli
+
 stages:
   - build
   - publish
