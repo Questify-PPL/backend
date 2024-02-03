@@ -19,6 +19,7 @@ stages:
 Build:
   stage: build
   script:
+    - yarn install --production --frozen-lockfile
     - yarn build
 
 Publish:
