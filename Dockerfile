@@ -16,6 +16,9 @@ FROM node:lts-alpine as production
 
 WORKDIR /usr/src/app
 
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
+
 COPY --from=build /usr/src/app/dist ./dist
 
 COPY package.json yarn.lock ./
