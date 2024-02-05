@@ -7,7 +7,9 @@ ENV NODE_ENV=${NODE_ENV}
 
 COPY package.json yarn.lock ./
 
-RUN yarn install --frozen-lockfile
+RUN yarn install --production --frozen-lockfile
+
+RUN yarn global add @nestjs/cli
 
 RUN yarn build
 
