@@ -14,7 +14,7 @@ cache:
 
 before_script:
   - yarn install --production --frozen-lockfile
-  - yarn global add @nestjs/cli
+  - yarn global add @nestjs/cli @types/jest jest ts-jest
 
 stages:
   - build
