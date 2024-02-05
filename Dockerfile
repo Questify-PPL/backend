@@ -1,4 +1,18 @@
-FROM node:lts-alpine as production
+# Build image
+FROM node:18-alpine as build
+
+WORKDIR /usr/src/app
+
+COPY package.json yarn.lock ./
+
+RUN yarn install --frozen-lockfile
+
+COPY . .
+
+RUN yarn build
+
+# Production image
+FROM node:20-alpine as production
 
 WORKDIR /usr/src/app
 
@@ -8,12 +22,6 @@ ENV NODE_ENV=${NODE_ENV}
 COPY package.json yarn.lock ./
 
 RUN yarn install --production --frozen-lockfile
-
-RUN yarn global add @nestjs/cli
-
-RUN yarn build
-
-COPY . .
 
 RUN rm package.json yarn.lock
 
