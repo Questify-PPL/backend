@@ -8,7 +8,12 @@ variables:
   GCP_USERNAME: $GCP_USERNAME
   GCP_STATIC_IP: $GCP_STATIC_IP
 
+cache:
+  paths:
+    - node_modules/
+
 before_script:
+  - yarn install --production --frozen-lockfile
   - yarn global add @nestjs/cli
 
 stages:
@@ -19,8 +24,17 @@ stages:
 Build:
   stage: build
   script:
-    - yarn install --production --frozen-lockfile
     - yarn build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+
+Test:
+  stage: test
+  script:
+    - yarn test
+    - yarn test:cov
 
 Publish:
   stage: publish
