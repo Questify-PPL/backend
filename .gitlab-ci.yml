@@ -11,6 +11,7 @@ variables:
   GIT_DEPTH: '0' # Tells git to fetch all the branches of the project, required by the analysis task
 
 cache:
+  key: ${CI_COMMIT_REF_SLUG}
   paths:
     - node_modules/
 
