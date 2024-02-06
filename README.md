@@ -1,8 +1,6 @@
 <p align="center">Questify</p>
     <p align="center">
 <a href="https://gitlab.com/questify-ppl/backend/badges/main/coverage.svg?job=Test" target="_blank"><img src="https://gitlab.com/questify-ppl/backend/badges/main/coverage.svg?job=Test" alt="Coverage" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
 <a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
 </p>
   <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
