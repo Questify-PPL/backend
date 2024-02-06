@@ -7,22 +7,23 @@ variables:
   CONTAINER_NAME: $CONTAINER_NAME
   GCP_USERNAME: $GCP_USERNAME
   GCP_STATIC_IP: $GCP_STATIC_IP
+  SONAR_USER_HOME: '${CI_PROJECT_DIR}/.sonar' # Defines the location of the analysis task cache
+  GIT_DEPTH: '0' # Tells git to fetch all the branches of the project, required by the analysis task
 
 cache:
   paths:
     - node_modules/
 
-before_script:
-  - yarn install --frozen-lockfile
-
 stages:
   - build
   - test
-  - publish
-  - deploy
+  # - publish
+  # - deploy
 
 Build:
   stage: build
+  before_script:
+    - yarn install --frozen-lockfile
   script:
     - yarn build
   artifacts:
@@ -32,38 +33,58 @@ Build:
 
 Test:
   stage: test
+  before_script:
+    - yarn install --frozen-lockfile
   script:
     - yarn test
     - yarn test:cov
+  artifacts:
+    paths:
+      - coverage/
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
 
-Publish:
-  stage: publish
-  image: docker:latest
-  services:
-    - docker:dind
-  dependencies:
-    - Build
-  before_script:
-    - echo $DOCKER_PASSWORD| docker login -u $REGISTRY_USER --password-stdin docker.io
-  script:
-    - docker build -t $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG .
-    - docker push $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG
-  tags:
-    - dind
-  only:
-    - main
+# Publish:
+#   stage: publish
+#   image: docker:latest
+#   services:
+#     - docker:dind
+#   dependencies:
+#     - Build
+#   before_script:
+#     - echo $DOCKER_PASSWORD| docker login -u $REGISTRY_USER --password-stdin docker.io
+#   script:
+#     - docker build -t $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG .
+#     - docker push $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG
+#   tags:
+#     - dind
+#   only:
+#     - main
 
-Deploy:
-  stage: deploy
-  image: alpine:latest
-  before_script:
-    - chmod 400 $SSH_KEY
-    - apk update && apk add openssh-client
+# Deploy:
+#   stage: deploy
+#   image: alpine:latest
+#   before_script:
+#     - chmod 400 $SSH_KEY
+#     - apk update && apk add openssh-client
+#   script:
+#     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY $GCP_USERNAME@$GCP_STATIC_IP "
+#       docker container rm -f $CONTAINER_NAME || true &&
+#       docker image rm -f $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG || true &&
+#       docker run --name $CONTAINER_NAME -d -p 80:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG &&
+#       docker images --quiet --filter=dangling=true | xargs --no-run-if-empty docker rmi"
+#   only:
+#     - main
+
+sonarcloud-check:
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: ['']
+  cache:
+    key: '${CI_JOB_NAME}'
+    paths:
+      - .sonar/cache
   script:
-    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY $GCP_USERNAME@$GCP_STATIC_IP "
-      docker container rm -f $CONTAINER_NAME || true &&
-      docker image rm -f $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG || true &&
-      docker run --name $CONTAINER_NAME -d -p 80:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG &&
-      docker images --quiet --filter=dangling=true | xargs --no-run-if-empty docker rmi"
+    - sonar-scanner
   only:
+    - staging
     - main
