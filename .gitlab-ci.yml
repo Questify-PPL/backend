@@ -18,6 +18,7 @@ cache:
 stages:
   - build
   - test
+  - sonarcloud-check
   - publish
   - deploy
 
@@ -65,6 +66,7 @@ Deploy-Production:
     - vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
 
 sonarcloud-check:
+  stage: sonarcloud-check
   image:
     name: sonarsource/sonar-scanner-cli:latest
     entrypoint: ['']
@@ -74,6 +76,8 @@ sonarcloud-check:
       - .sonar/cache
   script:
     - sonar-scanner
+  dependencies:
+    - Test
   only:
     - staging
     - main

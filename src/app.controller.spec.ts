@@ -18,5 +18,9 @@ describe('AppController', () => {
     it('should return "Hello Staging!"', () => {
       expect(appController.getHello()).toBe('Hello Staging!');
     });
+
+    it('should return "Goodbye Staging!"', () => {
+      expect(appController.sendGoodbye()).toBe('Goodbye Staging!');
+    });
   });
 });
