@@ -1,1 +1,1 @@
-yarn test-all
+npm run test-all

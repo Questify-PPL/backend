@@ -15,11 +15,11 @@ ENV NODE_ENV=${NODE_ENV}
 
 COPY --from=build /usr/src/app/dist ./dist
 
-COPY package.json yarn.lock ./
+COPY package*.json ./
 
-RUN yarn install --production --frozen-lockfile
+RUN npm install --production
 
-RUN rm package.json yarn.lock
+RUN rm package*.json
 
 EXPOSE 3001
 

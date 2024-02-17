@@ -25,9 +25,9 @@ stages:
 Build:
   stage: build
   before_script:
-    - yarn install --frozen-lockfile
+    - npm ci
   script:
-    - yarn build
+    - npm run build
   artifacts:
     paths:
       - dist/
@@ -36,10 +36,10 @@ Build:
 Test:
   stage: test
   before_script:
-    - yarn install --frozen-lockfile
+    - npm ci
   script:
-    - yarn test
-    - yarn test:cov
+    - npm run test
+    - npm run test:cov
   artifacts:
     paths:
       - coverage/
