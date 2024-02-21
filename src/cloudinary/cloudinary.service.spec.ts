@@ -7,7 +7,7 @@ import { Readable } from 'stream';
 jest.mock('cloudinary', () => ({
   v2: {
     uploader: {
-      upload_stream: jest.fn(), // This is now a Jest mock function
+      upload_stream: jest.fn(),
     },
   },
 }));
@@ -30,7 +30,6 @@ describe('CloudinaryService', () => {
   });
 
   it('should upload an image', async () => {
-    // Mock the implementation for the test case
     (cloudinary.v2.uploader.upload_stream as jest.Mock).mockImplementationOnce(
       (options, callback) => {
         const mockStream = new Readable();
