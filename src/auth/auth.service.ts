@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AxiosResponse } from 'axios';
 import * as bcrypt from 'bcrypt';
@@ -17,6 +18,7 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly prismaService: PrismaService,
+    private readonly configService: ConfigService,
     private readonly httpService: HttpService,
   ) {}
 
@@ -121,8 +123,8 @@ export class AuthService {
     };
 
     const token = await this.jwtService.signAsync(payload, {
-      expiresIn: '60m',
-      secret: 'TEST_SECRET_KEY',
+      expiresIn: this.configService.get('JWT_EXPIRES_IN'),
+      secret: this.configService.get('JWT_SECRET'),
     });
 
     return token;
