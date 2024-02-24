@@ -8,13 +8,13 @@ import { HttpService } from '@nestjs/axios';
 import { of } from 'rxjs';
 import { AxiosResponse } from 'axios';
 import { XMLParser } from 'fast-xml-parser';
+import { ConfigService } from '@nestjs/config';
 
 describe('AuthService', () => {
   let service: AuthService;
   let jwtService: JwtService;
   let prismaService: PrismaService;
   let httpService: HttpService;
-
   const dummyUser = {
     id: '1',
     email: 'test@example.com',
@@ -42,6 +42,12 @@ describe('AuthService', () => {
         },
         {
           provide: HttpService,
+          useValue: {
+            get: jest.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
           useValue: {
             get: jest.fn(),
           },
