@@ -10,6 +10,12 @@ describe('AuthService', () => {
   let jwtService: JwtService;
   let prismaService: PrismaService;
 
+  const dummyUser = {
+    id: '1',
+    email: 'test@example.com',
+    password: '$2a$10$DpHVSMV3D1NwHfHTUzAHhuxLuXuPENZ9SHLD5bFG2QKf9tPaQBlri', // encyrpted should be passwordtest
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -26,6 +32,7 @@ describe('AuthService', () => {
             user: {
               findUnique: jest.fn().mockResolvedValue({}),
             },
+            $transaction: jest.fn(),
           },
         },
       ],
@@ -57,11 +64,9 @@ describe('AuthService', () => {
 
   it('should throw BadRequestException if password does not match', async () => {
     // Mock findUnique to return a user object
-    jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
-      id: '1',
-      email: 'test@example.com',
-      password: '$2a$10$DpHVSMV3D1NwHfHTUzAHhuxLuXuPENZ9SHLD5bFG2QKf9tPaQBlri', // encyrpted should be passwordtest
-    } as any);
+    jest
+      .spyOn(prismaService.user, 'findUnique')
+      .mockResolvedValue(dummyUser as any);
 
     const loginDTO: LoginDTO = {
       email: 'test@example.com',
@@ -75,11 +80,9 @@ describe('AuthService', () => {
 
   it('should login a user successfully', async () => {
     // Mock findUnique to return a user object
-    jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
-      id: '1',
-      email: 'test@example.com',
-      password: '$2a$10$DpHVSMV3D1NwHfHTUzAHhuxLuXuPENZ9SHLD5bFG2QKf9tPaQBlri', // encyrpted should be passwordtest
-    } as any);
+    jest
+      .spyOn(prismaService.user, 'findUnique')
+      .mockResolvedValue(dummyUser as any);
 
     const loginDTO: LoginDTO = {
       email: 'test@example.com',
@@ -102,12 +105,53 @@ describe('AuthService', () => {
     );
   });
 
+  it('should throw BadRequestException if user already exists when register', async () => {
+    jest
+      .spyOn(prismaService.user, 'findUnique')
+      .mockResolvedValue(dummyUser as any);
+
+    const registerDTO = {
+      email: 'test@example.com',
+      password: 'newpassword',
+    };
+
+    await expect(service.register(registerDTO)).rejects.toThrow(
+      'User already exists',
+    );
+  });
+
   it('should register a user successfully', async () => {
     jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
 
-    jest.spyOn(prismaService, '$transaction').mockImplementation(async (fn) => {
-      return await fn(prismaService);
-    });
+    jest
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        // Simulate the creation of a user
+        const createdUser = {
+          id: '1',
+          email: 'test@example.com',
+          password:
+            '$2a$10$DpHVSMV3D1NwHfHTUzAHhuxLuXuPENZ9SHLD5bFG2QKf9tPaQBlri',
+        };
+
+        // Simulate the creation of a Creator role
+        const createdCreator = {
+          userId: createdUser.id,
+        };
+
+        const prismaMock = {
+          user: {
+            create: jest.fn().mockResolvedValue(createdUser),
+          },
+          creator: {
+            create: jest.fn().mockResolvedValue(createdCreator),
+          },
+        } as any;
+
+        return prisma(prismaMock);
+      });
+
+    // TODO: MOCK EMAIL SERVICE USAGE
 
     const registerDTO = {
       email: 'test@example.com',
@@ -118,7 +162,7 @@ describe('AuthService', () => {
 
     expect(result).toEqual({
       statusCode: 201,
-      message: 'Success',
+      message: 'User created',
       data: {
         id: expect.any(String),
         email: 'test@example.com',
