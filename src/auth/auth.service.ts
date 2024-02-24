@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { AxiosResponse } from 'axios';
 import * as bcrypt from 'bcrypt';
+import { XMLParser } from 'fast-xml-parser';
+import { firstValueFrom } from 'rxjs';
 import { LoginDTO, SSOAuthDTO } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -75,6 +78,124 @@ export class AuthService {
   }
 
   async loginSSO(ssoDTO: SSOAuthDTO) {
-    return ssoDTO;
+    const { ticket, serviceURL } = ssoDTO;
+
+    const { user, username, npm } = await this.getDataFromSSO(
+      ticket,
+      serviceURL,
+    );
+
+    let foundUser = await this.findUserById(`UI${npm}`);
+
+    if (!foundUser) {
+      foundUser = await this.createSSOAuthenticatedUser(user, username, npm);
+    }
+
+    const token = await this.signToken(foundUser.id);
+
+    return {
+      statusCode: 200,
+      message: 'Success',
+      data: {
+        accessToken: token,
+      },
+    };
+  }
+
+  private async getDataFromSSO(ticket: string, serviceURL: string) {
+    const url = `https://sso.ui.ac.id/cas2/serviceValidate?ticket=${ticket}&service=${serviceURL}`;
+
+    const request = this.httpService.get(url);
+
+    const response = await firstValueFrom(request);
+
+    if (response.status !== 200) {
+      throw new BadRequestException(
+        'CAS Server failed to response, please try again later',
+      );
+    }
+
+    const data = await this.parseSSOData(response);
+
+    return {
+      user: data['cas:user'],
+      username: data['cas:attributes']['cas:nama'],
+      kd_org: data['cas:attributes']['cas:kd_org'],
+      peran_user: data['cas:attributes']['cas:peran_user'],
+      npm: data['cas:attributes']['cas:npm'],
+    };
+  }
+
+  private async parseSSOData(response: AxiosResponse<any, any>) {
+    // Parse XML
+    const data = response.data;
+
+    const parser = new XMLParser({
+      attributeNamePrefix: '',
+    });
+
+    const parsedData = parser.parse(data);
+
+    if (!parsedData['cas:serviceResponse']) {
+      throw new BadRequestException('Failed to parse XML');
+    }
+
+    if (parsedData['cas:serviceResponse']['cas:authenticationFailure']) {
+      throw new BadRequestException(
+        `Authentication failed - ${parsedData['cas:serviceResponse']['cas:authenticationFailure']}`,
+      );
+    }
+
+    return parsedData['cas:serviceResponse']['cas:authenticationSuccess'];
+  }
+
+  private async findUserById(npm: string) {
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id: npm,
+      },
+    });
+
+    return user;
+  }
+
+  private async createSSOAuthenticatedUser(
+    user: string,
+    username: string,
+    npm: string,
+  ) {
+    const newUser = await this.prismaService.$transaction(async (prisma) => {
+      const createdUser = await prisma.user.create({
+        data: {
+          id: `UI${npm}`,
+          email: `${user}@ui.ac.id`,
+          ssoUsername: username,
+        },
+      });
+
+      await prisma.creator.create({
+        data: {
+          user: {
+            connect: {
+              id: createdUser.id,
+            },
+          },
+        },
+      });
+
+      await prisma.respondent.create({
+        data: {
+          user: {
+            connect: {
+              id: createdUser.id,
+            },
+          },
+        },
+      });
+
+      return createdUser;
+    });
+
+    return newUser;
   }
 }
