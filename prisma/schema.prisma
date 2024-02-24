@@ -19,7 +19,7 @@ model User {
   lastName            String?
   phoneNumber         String?
   gender              String?
-  companyName         String?
+  age                 Int?
   credit              String?
   isVerified          Boolean     @default(false)
   isBlocked           Boolean     @default(false)
