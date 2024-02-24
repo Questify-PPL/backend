@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { LoginDTO } from 'src/dto';
 import { NotFoundException } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -35,6 +36,12 @@ describe('AuthService', () => {
             $transaction: jest.fn(),
           },
         },
+        {
+          provide: HttpService,
+          useValue: {
+            get: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -50,7 +57,18 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should throw NotFoundException if user does not exist', async () => {
+  it('should throw BadRequestException if user is an SSO user when login', async () => {
+    const loginDTO: LoginDTO = {
+      email: 'test@ui.ac.id',
+      password: 'testpassword',
+    };
+
+    await expect(service.login(loginDTO)).rejects.toThrow(
+      'Please sign in with SSO instead',
+    );
+  });
+
+  it('should throw NotFoundException if user does not exist when login', async () => {
     // Mock findUnique to return null (user not found)
     jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
 
@@ -102,6 +120,17 @@ describe('AuthService', () => {
     expect(jwtService.signAsync).toHaveBeenCalledWith(
       { userId: '1' },
       expect.any(Object),
+    );
+  });
+
+  it('should throw BadRequestException if user is an SSO user when register', async () => {
+    const registerDTO = {
+      email: 'test@ui.ac.id',
+      password: 'testpassword',
+    };
+
+    await expect(service.register(registerDTO)).rejects.toThrow(
+      'Please sign up with SSO instead',
     );
   });
 
