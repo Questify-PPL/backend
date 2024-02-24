@@ -29,6 +29,18 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       return null;
     }
 
-    return user;
+    const userWithoutPassword = this.exclude(user, ['password']);
+
+    return userWithoutPassword;
+  }
+
+  // Exclude keys from user
+  private exclude<User, Key extends keyof User>(
+    user: User,
+    keys: Key[],
+  ): Omit<User, Key> {
+    return Object.fromEntries(
+      Object.entries(user).filter(([key]) => !keys.includes(key as Key)),
+    ) as Omit<User, Key>;
   }
 }
