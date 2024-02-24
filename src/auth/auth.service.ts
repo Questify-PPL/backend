@@ -9,7 +9,7 @@ import { AxiosResponse } from 'axios';
 import * as bcrypt from 'bcrypt';
 import { XMLParser } from 'fast-xml-parser';
 import { firstValueFrom } from 'rxjs';
-import { LoginDTO, SSOAuthDTO } from 'src/dto';
+import { LoginDTO, RegisterDTO, SSOAuthDTO } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -48,6 +48,10 @@ export class AuthService {
         accessToken: token,
       },
     };
+  }
+
+  async register(registerDTO: RegisterDTO) {
+    return registerDTO;
   }
 
   private async validateUIEmail(email: string) {
