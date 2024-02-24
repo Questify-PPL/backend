@@ -51,7 +51,54 @@ export class AuthService {
   }
 
   async register(registerDTO: RegisterDTO) {
-    return registerDTO;
+    const { email, password } = registerDTO;
+
+    if (await this.validateUIEmail(email)) {
+      throw new BadRequestException('Please sign up with SSO instead');
+    }
+
+    const user = await this.findUserByEmail(email);
+
+    if (user) {
+      throw new BadRequestException('User already exists');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = await this.prismaService.$transaction(async (prisma) => {
+      const createdUser = await prisma.user.create({
+        data: {
+          email: registerDTO.email,
+          password: hashedPassword,
+          // ADD ROLE
+        },
+      });
+
+      await prisma.creator.create({
+        data: {
+          user: {
+            connect: {
+              id: createdUser.id,
+            },
+          },
+        },
+      });
+
+      // TODO: CALL EMAIL SERVICE
+
+      return createdUser;
+    });
+
+    return {
+      statusCode: 201,
+      message: 'User created',
+      data: {
+        id: newUser.id,
+        email: newUser.email,
+      },
+    };
   }
 
   private async validateUIEmail(email: string) {
