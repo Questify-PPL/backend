@@ -16,6 +16,14 @@
 $ npm install
 ```
 
+## Prerequiste
+
+1. Make sure to create .env file at the root of the folder.
+2. Copy the content of .env.example, and set the appropriate value so that the app can run properly.
+3. Firstly, run `npm run test` to make sure that the test has all been successfuly implemented to avoid unnecessary issue.
+4. Secondly, run `npx prisma migrate dev && npx prisma generate` to your terminal.
+5. Lastly, you can follow the instruction below to run the app.
+
 ## Running the app
 
 ```bash
