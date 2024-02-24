@@ -9,7 +9,7 @@ import { AxiosResponse } from 'axios';
 import * as bcrypt from 'bcrypt';
 import { XMLParser } from 'fast-xml-parser';
 import { firstValueFrom } from 'rxjs';
-import { LoginDTO, SSOAuthDTO } from 'src/dto';
+import { LoginDTO, RegisterDTO, SSOAuthDTO } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -46,6 +46,57 @@ export class AuthService {
       message: 'Success',
       data: {
         accessToken: token,
+      },
+    };
+  }
+
+  async register(registerDTO: RegisterDTO) {
+    const { email, password } = registerDTO;
+
+    if (await this.validateUIEmail(email)) {
+      throw new BadRequestException('Please sign up with SSO instead');
+    }
+
+    const user = await this.findUserByEmail(email);
+
+    if (user) {
+      throw new BadRequestException('User already exists');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = await this.prismaService.$transaction(async (prisma) => {
+      const createdUser = await prisma.user.create({
+        data: {
+          email: registerDTO.email,
+          password: hashedPassword,
+          // ADD ROLE
+        },
+      });
+
+      await prisma.creator.create({
+        data: {
+          user: {
+            connect: {
+              id: createdUser.id,
+            },
+          },
+        },
+      });
+
+      // TODO: CALL EMAIL SERVICE
+
+      return createdUser;
+    });
+
+    return {
+      statusCode: 201,
+      message: 'User created',
+      data: {
+        id: newUser.id,
+        email: newUser.email,
       },
     };
   }
