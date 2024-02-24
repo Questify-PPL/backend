@@ -101,4 +101,28 @@ describe('AuthService', () => {
       expect.any(Object),
     );
   });
+
+  it('should register a user successfully', async () => {
+    jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
+
+    jest.spyOn(prismaService, '$transaction').mockImplementation(async (fn) => {
+      return await fn(prismaService);
+    });
+
+    const registerDTO = {
+      email: 'test@example.com',
+      password: 'passwordtest',
+    };
+
+    const result = await service.register(registerDTO);
+
+    expect(result).toEqual({
+      statusCode: 201,
+      message: 'Success',
+      data: {
+        id: expect.any(String),
+        email: 'test@example.com',
+      },
+    });
+  });
 });
