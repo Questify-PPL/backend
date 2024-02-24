@@ -5,11 +5,15 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { LoginDTO } from 'src/dto';
 import { NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
+import { of } from 'rxjs';
+import { AxiosResponse } from 'axios';
+import { XMLParser } from 'fast-xml-parser';
 
 describe('AuthService', () => {
   let service: AuthService;
   let jwtService: JwtService;
   let prismaService: PrismaService;
+  let httpService: HttpService;
 
   const dummyUser = {
     id: '1',
@@ -48,9 +52,7 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
     jwtService = module.get<JwtService>(JwtService);
     prismaService = module.get<PrismaService>(PrismaService);
-
-    //  Mock bcrypt.compare to always return true
-    // jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+    httpService = module.get<HttpService>(HttpService);
   });
 
   it('should be defined', () => {
@@ -113,7 +115,7 @@ describe('AuthService', () => {
       statusCode: 200,
       message: 'Success',
       data: {
-        accessToken: 'token',
+        accessToken: expect.any(String),
       },
     });
 
@@ -195,6 +197,158 @@ describe('AuthService', () => {
       data: {
         id: expect.any(String),
         email: 'test@example.com',
+      },
+    });
+  });
+
+  it('should send BadRequestException if CAS server is unavailable', async () => {
+    const mockResponse: AxiosResponse<any> = {
+      status: 500,
+      statusText: 'Internal Server Error',
+      headers: {},
+      config: {
+        headers: {} as any,
+      },
+      data: ``,
+    };
+
+    jest.spyOn(httpService, 'get').mockReturnValue(of(mockResponse));
+
+    const ssoDTO = {
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    };
+
+    await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
+      'CAS Server failed to response, please try again later',
+    );
+  });
+
+  it('should send BadRequestException if parsed XML is invalid', async () => {
+    const mockResponse: AxiosResponse<any> = {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {
+        headers: {} as any,
+      },
+      data: `Invalid XML`,
+    };
+
+    jest.spyOn(httpService, 'get').mockReturnValue(of(mockResponse));
+
+    const ssoDTO = {
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    };
+
+    await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
+      'Failed to parse XML',
+    );
+  });
+
+  it('should send BadRequestException if authentication failure happens', async () => {
+    const mockResponse: AxiosResponse<any> = {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {
+        headers: {} as any,
+      },
+      data: `
+        <cas:serviceResponse>
+          <cas:authenticationFailure code="INVALID_TICKET">
+            Invalid ticket
+          </cas:authenticationFailure>
+        </cas:serviceResponse>
+      `,
+    };
+
+    jest.spyOn(httpService, 'get').mockReturnValue(of(mockResponse));
+
+    const ssoDTO = {
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    };
+
+    await expect(service.loginSSO(ssoDTO)).rejects.toThrow('Invalid ticket');
+  });
+
+  it('should handle loginSSO correctly and register if user does not exist', async () => {
+    // Mock the HTTP request
+    const mockResponse: AxiosResponse<any> = {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {
+        headers: {} as any,
+      },
+      data: `
+        <cas:serviceResponse>
+          <cas:authenticationSuccess>
+            <cas:user>user</cas:user>
+            <cas:attributes>
+              <cas:nama>username</cas:nama>
+              <cas:kd_org>kd_org</cas:kd_org>
+              <cas:peran_user>peran_user</cas:peran_user>
+              <cas:npm>npm</cas:npm>
+            </cas:attributes>
+          </cas:authenticationSuccess>
+        </cas:serviceResponse>
+      `,
+    };
+
+    jest.spyOn(httpService, 'get').mockReturnValue(of(mockResponse));
+
+    // Mock the XML parsing
+    const parser = new XMLParser({
+      attributeNamePrefix: '',
+    });
+    jest.spyOn(parser, 'parse').mockReturnValue(mockResponse.data);
+    jest.spyOn(prismaService.user, 'findUnique').mockReturnValue(null);
+
+    jest
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        const createdUser = {
+          id: 'UI123456',
+          email: 'user@ui.ac.id',
+          ssoUsername: 'username',
+        };
+
+        const createdCreator = {
+          userId: createdUser.id,
+        };
+
+        const createdRespondent = {
+          userId: createdUser.id,
+        };
+
+        const prismaMock = {
+          user: {
+            create: jest.fn().mockResolvedValue(createdUser),
+          },
+          creator: {
+            create: jest.fn().mockResolvedValue(createdCreator),
+          },
+          respondent: {
+            create: jest.fn().mockResolvedValue(createdRespondent),
+          },
+        } as any;
+
+        return prisma(prismaMock);
+      });
+
+    const result = await service.loginSSO({
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    });
+
+    expect(result).toEqual({
+      statusCode: 200,
+      message: 'Success',
+      data: {
+        accessToken: expect.any(String),
       },
     });
   });
