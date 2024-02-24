@@ -5,9 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { LoginDTO, RegisterDTO, SSOAuthDTO } from 'src/dto';
-import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { LoginDTO, SSOAuthDTO } from 'src/dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -45,10 +45,6 @@ export class AuthService {
         accessToken: token,
       },
     };
-  }
-
-  async register(registerDTO: RegisterDTO) {
-    return registerDTO;
   }
 
   private async validateUIEmail(email: string) {

@@ -33,12 +33,6 @@ describe('AuthController', () => {
     expect(await controller.login(loginDTO)).toEqual({});
   });
 
-  it('should call authService.register with the correct arguments', async () => {
-    const registerDTO = { email: '', password: '' };
-
-    expect(await controller.register(registerDTO)).toEqual({});
-  });
-
   it('should call authService.loginSSO with the correct arguments', async () => {
     const ssoDTO = { ticket: '', serviceURL: '' };
 
