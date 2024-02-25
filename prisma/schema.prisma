@@ -142,3 +142,11 @@ model Answer {
 
   @@id([formId, questionNo, respondentId])
 }
+
+model VerificationToken {
+  email String 
+  token String 
+  expiredAt DateTime
+
+  @@id([email, token])
+}
