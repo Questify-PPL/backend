@@ -24,7 +24,7 @@ export class EmailService {
     }
 
     const verificationToken = await this.generateVerificationToken(userEmail);
-    const verificationLink = `http://localhost:3001/email/verify-email?token=${verificationToken}`;
+    const verificationLink = `http://localhost:3001/api/v1/email/verify-email?token=${verificationToken}`;
 
     this.mailerService.sendMail({
       to: userEmail,
