@@ -144,9 +144,11 @@ model Answer {
 }
 
 model VerificationToken {
-  email String 
-  token String 
-  expiredAt DateTime
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  email     String  
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
 
-  @@id([email, token])
+  @@map("verification_tokens") 
 }
