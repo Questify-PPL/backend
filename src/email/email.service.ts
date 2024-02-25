@@ -10,30 +10,30 @@ export class EmailService {
     private readonly prismaService: PrismaService,
   ) {}
   async sendVerificationMail(userEmail: string): Promise<void> {
-    // if(this.prismaService.user.findUnique({where: {email: userEmail}})){
-
-    const recipientEmail = userEmail;
     const supportEmail = 'questifyst.official@gmail.com';
-
-    const verificationToken = this.generateVerificationToken();
-    await this.prismaService.verificationToken.create({
-      data: {
-        email: userEmail,
-        token: verificationToken,
-        expiresAt: new Date(new Date().getTime() + 24 * 60 * 60 * 1000), // Expires in 24 hours
-      },
+    var user = await this.prismaService.user.findUnique({
+      where: { email: userEmail },
     });
 
+    if (userEmail == null || user == null) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.isVerified) {
+      throw new BadRequestException('User already verified');
+    }
+
+    const verificationToken = this.generateVerificationToken(userEmail);
     const verificationLink = `http://localhost:3001/api/v1/email/verify-email?token=${verificationToken}`;
 
     this.mailerService.sendMail({
-      to: recipientEmail,
+      to: userEmail,
       subject: `Welcome onboard! Please verify your email address.`,
       text: `Welcome onboard! Please verify your email address.`,
       html: `
             <p>Dear User},</p>
             <p>Thank you for choosing Questify. To ensure the security of your account and to complete your registration process, we kindly ask you to verify your email address.</p>
-            <p>Please confirm that ${recipientEmail} is your email address by clicking on the following verification link:</p>
+            <p>Please confirm that ${userEmail} is your email address by clicking on the following verification link:</p>
             <p><a href="${verificationLink}" target="_blank">Verify Email Address</a></p>
             <p>If you did not initiate this request, please ignore this email or contact us at <a href="mailto:${supportEmail}">${supportEmail}</a> if you have any questions.</p>
             <p>Warm regards,</p>
@@ -42,13 +42,22 @@ export class EmailService {
     });
   }
 
-  generateVerificationToken(): string {
+  async generateVerificationToken(userEmail: string): Promise<string> {
     const randomBuffer = randomBytes(32);
     const token = randomBuffer
       .toString('base64')
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=/g, '');
+
+    await this.prismaService.verificationToken.create({
+      data: {
+        email: userEmail,
+        token: token,
+        expiresAt: new Date(new Date().getTime() + 24 * 60 * 60 * 1000), // Expires in 24 hours
+      },
+    });
+
     return token;
   }
 
