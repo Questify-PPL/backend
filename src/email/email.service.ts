@@ -11,7 +11,7 @@ export class EmailService {
   ) {}
   async sendVerificationMail(userEmail: string): Promise<void> {
     const supportEmail = 'questifyst.official@gmail.com';
-    var user = await this.prismaService.user.findUnique({
+    const user = await this.prismaService.user.findUnique({
       where: { email: userEmail },
     });
 
