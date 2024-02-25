@@ -15,7 +15,6 @@ import { UserModule } from './user/user.module';
     AuthModule,
     PrismaModule,
     UserModule,
-    ,
     EmailModule,
   ],
   controllers: [AppController],
