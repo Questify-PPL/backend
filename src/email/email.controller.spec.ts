@@ -30,7 +30,7 @@ describe('EmailController', () => {
 
   it('should call sendVerificationMail with the provided email', async () => {
     const sendMailAuthDTO = { email: 'test@example.com' };
-    await controller.sendMail(sendMailAuthDTO);
+    await controller.sendVerificationMail(sendMailAuthDTO);
     expect(emailService.sendVerificationMail).toHaveBeenCalledWith(
       'test@example.com',
     );

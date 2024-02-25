@@ -7,7 +7,7 @@ export class EmailController {
   constructor(private readonly emailService: EmailService) {}
 
   @Get('/send-verify-mail')
-  async sendMail(@Body() sendMailAuthDTO: SendMailAuthDTO): Promise<void> {
+  async sendVerificationMail(@Body() sendMailAuthDTO: SendMailAuthDTO) {
     return this.emailService.sendVerificationMail(sendMailAuthDTO.email);
   }
 

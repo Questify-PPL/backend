@@ -9,7 +9,7 @@ export class EmailService {
     private readonly mailerService: MailerService,
     private readonly prismaService: PrismaService,
   ) {}
-  async sendVerificationMail(userEmail: string): Promise<void> {
+  async sendVerificationMail(userEmail: string) {
     const supportEmail = 'questifyst.official@gmail.com';
     const user = await this.prismaService.user.findUnique({
       where: { email: userEmail },
@@ -23,15 +23,15 @@ export class EmailService {
       throw new BadRequestException('User already verified');
     }
 
-    const verificationToken = this.generateVerificationToken(userEmail);
-    const verificationLink = `http://localhost:3001/api/v1/email/verify-email?token=${verificationToken}`;
+    const verificationToken = await this.generateVerificationToken(userEmail);
+    const verificationLink = `http://localhost:3001/email/verify-email?token=${verificationToken}`;
 
     this.mailerService.sendMail({
       to: userEmail,
       subject: `Welcome onboard! Please verify your email address.`,
       text: `Welcome onboard! Please verify your email address.`,
       html: `
-            <p>Dear User},</p>
+            <p>Dear User,</p>
             <p>Thank you for choosing Questify. To ensure the security of your account and to complete your registration process, we kindly ask you to verify your email address.</p>
             <p>Please confirm that ${userEmail} is your email address by clicking on the following verification link:</p>
             <p><a href="${verificationLink}" target="_blank">Verify Email Address</a></p>
@@ -40,6 +40,11 @@ export class EmailService {
             <p>The Questify Team</p>
           `,
     });
+
+    return {
+      statusCode: 200,
+      message: 'Email successfully sent for verification',
+    };
   }
 
   async generateVerificationToken(userEmail: string): Promise<string> {
@@ -66,6 +71,14 @@ export class EmailService {
       where: { token },
     });
 
+    const user = await this.prismaService.user.findUnique({
+      where: { email: tokenRecord.email },
+    });
+
+    if (user.isVerified) {
+      throw new BadRequestException('User already verified');
+    }
+
     if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
       throw new BadRequestException('Invalid or expired token');
     }
@@ -79,6 +92,9 @@ export class EmailService {
       where: { token },
     });
 
-    return { message: 'Email successfully verified' };
+    return {
+      statusCode: 200,
+      message: 'Email successfully verified',
+    };
   }
 }
