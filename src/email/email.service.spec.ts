@@ -53,24 +53,45 @@ describe('EmailService', () => {
     prismaService.verificationToken.create = jest.fn().mockResolvedValue({});
     mailerService.sendMail = jest.fn().mockResolvedValue(true);
 
-    await service.sendVerificationMail('test@example.com');
+    await expect(
+      service.sendVerificationMail('test@example.com'),
+    ).resolves.toEqual({
+      statusCode: 200,
+      message: 'Email successfully sent for verification',
+    });
 
     expect(mailerService.sendMail).toHaveBeenCalled();
   });
 
-  it('should verify a user with a valid token', async () => {
+  it('should throw BadRequestException if user email is null', async () => {
+    await expect(service.sendVerificationMail(null)).rejects.toThrow(
+      new BadRequestException('User not found'),
+    );
+  });
+
+  it('should verify the user successfully', async () => {
+    const token = 'validToken';
+    const userEmail = 'test@example.com';
     prismaService.verificationToken.findUnique = jest.fn().mockResolvedValue({
-      email: 'test@example.com',
+      email: userEmail,
+      token: token,
       expiresAt: new Date(new Date().getTime() + 24 * 60 * 60 * 1000),
     });
-    prismaService.user.update = jest
-      .fn()
-      .mockResolvedValue({ isVerified: true });
+    prismaService.user.findUnique = jest.fn().mockResolvedValue({
+      email: userEmail,
+      isVerified: false,
+    });
 
-    const result = await service.verifyUser('valid-token');
+    const response = await service.verifyUser(token);
 
-    expect(result).toEqual({ message: 'Email successfully verified' });
+    expect(response).toEqual({
+      statusCode: 200,
+      message: 'Email successfully verified',
+    });
     expect(prismaService.user.update).toHaveBeenCalled();
+    expect(prismaService.verificationToken.delete).toHaveBeenCalledWith({
+      where: { token },
+    });
   });
 
   it('should throw an error if user does not exist', async () => {
@@ -81,7 +102,7 @@ describe('EmailService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('should throw an error if user is already verified', async () => {
+  it('should throw an error if user is already verified while sending verification mail', async () => {
     prismaService.user.findUnique = jest
       .fn()
       .mockResolvedValue({ isVerified: true });
@@ -91,10 +112,29 @@ describe('EmailService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('should throw an error if trying to verify an already verified user', async () => {
+    (prismaService.user.findUnique as jest.Mock).mockResolvedValue({
+      email: 'test@example.com',
+      isVerified: true,
+    });
+    prismaService.verificationToken.findUnique = jest.fn().mockResolvedValue({
+      email: 'test@example.com',
+      expiresAt: new Date(new Date().getTime() + 24 * 60 * 60 * 1000),
+    });
+
+    await expect(service.verifyUser('valid-token')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
   it('should throw an error if the token is expired', async () => {
     prismaService.verificationToken.findUnique = jest.fn().mockResolvedValue({
       email: 'test@example.com',
       expiresAt: new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
+    });
+    (prismaService.user.findUnique as jest.Mock).mockResolvedValue({
+      email: 'test@example.com',
+      isVerified: false,
     });
 
     await expect(service.verifyUser('expired-token')).rejects.toThrow(
