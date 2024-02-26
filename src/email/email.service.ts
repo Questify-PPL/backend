@@ -9,8 +9,9 @@ export class EmailService {
     private readonly mailerService: MailerService,
     private readonly prismaService: PrismaService,
   ) {}
-  async sendVerificationMail(userEmail: string) {
-    const supportEmail = 'questifyst.official@gmail.com';
+
+  public async sendVerificationMail(userEmail: string) {
+    const supportEmail = process.env.USERNAME_SMTP_GMAIL;
     const user = await this.prismaService.user.findUnique({
       where: { email: userEmail },
     });
@@ -24,7 +25,7 @@ export class EmailService {
     }
 
     const verificationToken = await this.generateVerificationToken(userEmail);
-    const verificationLink = `http://localhost:3001/api/v1/email/verify-email?token=${verificationToken}`;
+    const verificationLink = `${process.env.NEXT_PUBLIC_API_URL}/email/verify-email?token=${verificationToken}`;
 
     this.mailerService.sendMail({
       to: userEmail,
@@ -47,7 +48,7 @@ export class EmailService {
     };
   }
 
-  async generateVerificationToken(userEmail: string): Promise<string> {
+  private async generateVerificationToken(userEmail: string): Promise<string> {
     const randomBuffer = randomBytes(32);
     const token = randomBuffer
       .toString('base64')
@@ -66,7 +67,7 @@ export class EmailService {
     return token;
   }
 
-  async verifyUser(token: string) {
+  public async verifyUser(token: string) {
     const tokenRecord = await this.prismaService.verificationToken.findUnique({
       where: { token },
     });
