@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { SendMailAuthDTO } from 'src/dto/auth/sendMailAuth.dto';
 
@@ -11,12 +11,8 @@ export class EmailController {
     return this.emailService.sendVerificationMail(sendMailAuthDTO.email);
   }
 
-  @Get('verify-email')
+  @Post('verify-email')
   async verifyEmail(@Query('token') token: string) {
-    try {
-      await this.emailService.verifyUser(token);
-    } catch (error) {
-      console.error(error);
-    }
+    return this.emailService.verifyUser(token);
   }
 }

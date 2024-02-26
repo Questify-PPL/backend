@@ -25,7 +25,7 @@ export class EmailService {
     }
 
     const verificationToken = await this.generateVerificationToken(userEmail);
-    const verificationLink = `${process.env.NEXT_PUBLIC_API_URL}/email/verify-email?token=${verificationToken}`;
+    const verificationLink = `${process.env.NEXT_PUBLIC_BASE_URL}/register/verification?token=${verificationToken}`;
 
     this.mailerService.sendMail({
       to: userEmail,
@@ -72,16 +72,16 @@ export class EmailService {
       where: { token },
     });
 
+    if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+
     const user = await this.prismaService.user.findUnique({
       where: { email: tokenRecord.email },
     });
 
     if (user.isVerified) {
       throw new BadRequestException('User already verified');
-    }
-
-    if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
-      throw new BadRequestException('Invalid or expired token');
     }
 
     await this.prismaService.user.update({

@@ -28,6 +28,17 @@ describe('EmailController', () => {
     expect(controller).toBeDefined();
   });
 
+  it('should handle errors when sending a verification mail', async () => {
+    const sendMailAuthDTO = { email: 'invalid@example.com' };
+    emailService.sendVerificationMail = jest
+      .fn()
+      .mockRejectedValue(new Error('User not found'));
+
+    await expect(
+      controller.sendVerificationMail(sendMailAuthDTO),
+    ).rejects.toThrow('User not found');
+  });
+
   it('should call sendVerificationMail with the provided email', async () => {
     const sendMailAuthDTO = { email: 'test@example.com' };
     await controller.sendVerificationMail(sendMailAuthDTO);
@@ -44,13 +55,12 @@ describe('EmailController', () => {
 
   it('should handle errors during email verification', async () => {
     const token = 'invalid-token';
-    const error = new Error('Verification failed');
-    jest.spyOn(emailService, 'verifyUser').mockRejectedValue(error);
+    emailService.verifyUser = jest
+      .fn()
+      .mockRejectedValue(new Error('Invalid or expired token'));
 
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    await controller.verifyEmail(token);
-
-    expect(console.error).toHaveBeenCalledWith(error);
+    await expect(controller.verifyEmail(token)).rejects.toThrow(
+      'Invalid or expired token',
+    );
   });
 });
