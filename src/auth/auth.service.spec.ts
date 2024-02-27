@@ -9,6 +9,7 @@ import { of } from 'rxjs';
 import { AxiosResponse } from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from 'src/email/email.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -36,6 +37,7 @@ describe('AuthService', () => {
           useValue: {
             user: {
               findUnique: jest.fn().mockResolvedValue({}),
+              update: jest.fn(),
             },
             $transaction: jest.fn(),
           },
@@ -50,6 +52,12 @@ describe('AuthService', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn(),
+          },
+        },
+        {
+          provide: EmailService,
+          useValue: {
+            sendVerificationMail: jest.fn(),
           },
         },
       ],
@@ -143,9 +151,10 @@ describe('AuthService', () => {
   });
 
   it('should throw BadRequestException if user already exists when register', async () => {
-    jest
-      .spyOn(prismaService.user, 'findUnique')
-      .mockResolvedValue(dummyUser as any);
+    jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
+      ...dummyUser,
+      isVerified: true,
+    } as any);
 
     const registerDTO = {
       email: 'test@example.com',
@@ -155,6 +164,30 @@ describe('AuthService', () => {
     await expect(service.register(registerDTO)).rejects.toThrow(
       'User already exists',
     );
+  });
+
+  it('should update user if user already exists but has not been verified when register', async () => {
+    jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
+      ...dummyUser,
+      isVerified: false,
+    } as any);
+
+    jest
+      .spyOn(prismaService.user, 'update')
+      .mockResolvedValue(dummyUser as any);
+
+    const registerDTO = {
+      email: 'test@example.com',
+      password: 'updatedPassword',
+    };
+
+    const result = await service.register(registerDTO);
+
+    expect(result).toEqual({
+      statusCode: 201,
+      message: 'User successfully created, please verify your email',
+      data: expect.any(Object),
+    });
   });
 
   it('should register a user successfully', async () => {
@@ -188,8 +221,6 @@ describe('AuthService', () => {
         return prisma(prismaMock);
       });
 
-    // TODO: MOCK EMAIL SERVICE USAGE
-
     const registerDTO = {
       email: 'test@example.com',
       password: 'passwordtest',
@@ -199,11 +230,8 @@ describe('AuthService', () => {
 
     expect(result).toEqual({
       statusCode: 201,
-      message: 'User created',
-      data: {
-        id: expect.any(String),
-        email: 'test@example.com',
-      },
+      message: 'User successfully created, please verify your email',
+      data: expect.any(Object),
     });
   });
 
