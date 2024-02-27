@@ -20,6 +20,7 @@ describe('AuthService', () => {
     id: '1',
     email: 'test@example.com',
     password: '$2a$10$DpHVSMV3D1NwHfHTUzAHhuxLuXuPENZ9SHLD5bFG2QKf9tPaQBlri', // encyrpted should be passwordtest
+    isVerified: true,
   };
 
   beforeEach(async () => {
@@ -76,7 +77,7 @@ describe('AuthService', () => {
   it('should throw BadRequestException if user is an SSO user when login', async () => {
     const loginDTO: LoginDTO = {
       email: 'test@ui.ac.id',
-      password: 'testpassword',
+      password: 'passwordtest',
     };
 
     await expect(service.login(loginDTO)).rejects.toThrow(
@@ -94,6 +95,22 @@ describe('AuthService', () => {
     };
 
     await expect(service.login(loginDTO)).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw BadRequestException if user is not verified when login', async () => {
+    // Mock findUnique to return a user object
+    jest
+      .spyOn(prismaService.user, 'findUnique')
+      .mockResolvedValue({ ...dummyUser, isVerified: false } as any);
+
+    const loginDTO: LoginDTO = {
+      email: 'test@example.com',
+      password: 'passwordtest',
+    };
+
+    await expect(service.login(loginDTO)).rejects.toThrow(
+      'Please verify your email first',
+    );
   });
 
   it('should throw BadRequestException if password does not match', async () => {
@@ -142,7 +159,7 @@ describe('AuthService', () => {
   it('should throw BadRequestException if user is an SSO user when register', async () => {
     const registerDTO = {
       email: 'test@ui.ac.id',
-      password: 'testpassword',
+      password: 'passwordtest',
     };
 
     await expect(service.register(registerDTO)).rejects.toThrow(
