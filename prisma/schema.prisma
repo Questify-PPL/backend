@@ -19,8 +19,9 @@ model User {
   lastName            String?
   phoneNumber         String?
   gender              String?
-  age                 Int?
-  credit              String?
+  companyName         String?
+  birthDate           DateTime?
+  credit              Int?
   isVerified          Boolean     @default(false)
   isBlocked           Boolean     @default(false)
   hasCompletedProfile Boolean     @default(false)
@@ -141,4 +142,14 @@ model Answer {
   answer       String[]
 
   @@id([formId, questionNo, respondentId])
+}
+
+model VerificationToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  email     String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+
+  @@map("verification_tokens")
 }
