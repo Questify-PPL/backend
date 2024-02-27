@@ -63,7 +63,7 @@ export class AuthService {
 
     const user = await this.findUserByEmail(email);
 
-    if (user && user.isVerified) {
+    if (user?.isVerified) {
       throw new BadRequestException('User already exists');
     }
 
