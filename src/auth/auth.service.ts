@@ -74,9 +74,9 @@ export class AuthService {
     let newUser;
 
     if (user) {
-      newUser = this.updateIfUserExists(email, hashedPassword);
+      newUser = await this.updateIfUserExists(email, hashedPassword);
     } else {
-      newUser = this.createIfUserNotExists(email, hashedPassword);
+      newUser = await this.createIfUserNotExists(email, hashedPassword);
     }
 
     await this.emailService.sendVerificationMail(newUser.email);
