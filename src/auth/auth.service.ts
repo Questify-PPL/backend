@@ -37,6 +37,10 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
+    if (!user.isVerified) {
+      throw new BadRequestException('Please verify your email first');
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
