@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { XMLParser } from 'fast-xml-parser';
 import { firstValueFrom } from 'rxjs';
 import { LoginDTO, RegisterDTO, SSOAuthDTO } from 'src/dto';
+import { EmailService } from 'src/email/email.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -20,6 +21,7 @@ export class AuthService {
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
+    private readonly emailService: EmailService,
   ) {}
 
   async login(loginDTO: LoginDTO) {
@@ -61,7 +63,7 @@ export class AuthService {
 
     const user = await this.findUserByEmail(email);
 
-    if (user) {
+    if (user && user.isVerified) {
       throw new BadRequestException('User already exists');
     }
 
@@ -69,12 +71,44 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const newUser = await this.prismaService.$transaction(async (prisma) => {
+    let newUser;
+
+    if (user) {
+      newUser = await this.updateIfUserExists(email, hashedPassword);
+    } else {
+      newUser = await this.createIfUserNotExists(email, hashedPassword);
+    }
+
+    await this.emailService.sendVerificationMail(newUser.email);
+
+    return {
+      statusCode: 201,
+      message: 'User successfully created, please verify your email',
+      data: {
+        id: newUser.id,
+        email: newUser.email,
+      },
+    };
+  }
+
+  private async updateIfUserExists(email: string, hashedPassword) {
+    return await this.prismaService.user.update({
+      where: {
+        email,
+      },
+      data: {
+        password: hashedPassword,
+      },
+    });
+  }
+
+  private async createIfUserNotExists(email: string, hashedPassword) {
+    return await this.prismaService.$transaction(async (prisma) => {
       const createdUser = await prisma.user.create({
         data: {
-          email: registerDTO.email,
+          email: email,
           password: hashedPassword,
-          // ADD ROLE
+          roles: ['CREATOR'],
         },
       });
 
@@ -88,19 +122,8 @@ export class AuthService {
         },
       });
 
-      // TODO: CALL EMAIL SERVICE
-
       return createdUser;
     });
-
-    return {
-      statusCode: 201,
-      message: 'User created',
-      data: {
-        id: newUser.id,
-        email: newUser.email,
-      },
-    };
   }
 
   private async validateUIEmail(email: string) {
@@ -223,6 +246,7 @@ export class AuthService {
           id: `UI${npm}`,
           email: `${user}@ui.ac.id`,
           ssoUsername: username,
+          roles: ['CREATOR', 'RESPONDENT'],
         },
       });
 
