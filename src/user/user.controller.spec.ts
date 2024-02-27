@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserController } from './user.controller';
-import { User } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { UserService } from './user.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
@@ -65,6 +65,7 @@ describe('UserController', () => {
         isVerified: false,
         isBlocked: false,
         hasCompletedProfile: false,
+        roles: ['RESPONDENT'] as Role[],
       };
 
       jest.spyOn(userService, 'updateProfile').mockImplementation();
@@ -104,6 +105,7 @@ describe('UserController', () => {
         isVerified: false,
         isBlocked: false,
         hasCompletedProfile: false,
+        roles: ['RESPONDENT'] as Role[],
       };
 
       const error = new NotFoundException(

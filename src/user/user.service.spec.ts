@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from './user.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
+import { Role } from '@prisma/client';
 
 describe('UserService', () => {
   let service: UserService;
@@ -59,6 +60,7 @@ describe('UserService', () => {
         isVerified: false,
         isBlocked: false,
         hasCompletedProfile: false,
+        roles: ['RESPONDENT'] as Role[],
       };
 
       const prismaUpdateMock = jest
@@ -109,6 +111,7 @@ describe('UserService', () => {
         isVerified: false,
         isBlocked: false,
         hasCompletedProfile: false,
+        roles: ['RESPONDENT'] as Role[],
       };
 
       const prismaUpdateMock = jest
