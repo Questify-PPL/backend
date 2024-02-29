@@ -13,33 +13,41 @@
 ## Installation
 
 ```bash
-$ yarn install
+$ npm install
 ```
+
+## Prerequiste
+
+1. Make sure to create .env file at the root of the folder.
+2. Copy the content of .env.example, and set the appropriate value so that the app can run properly.
+3. Firstly, run `npm run test` to make sure that the test has all been successfuly implemented to avoid unnecessary issue.
+4. Secondly, run `npx prisma migrate dev && npx prisma generate` to your terminal.
+5. Lastly, you can follow the instruction below to run the app.
 
 ## Running the app
 
 ```bash
 # development
-$ yarn run start
+$ npm run start
 
 # watch mode
-$ yarn run start:dev
+$ npm run start:dev
 
 # production mode
-$ yarn run start:prod
+$ npm run start:prod
 ```
 
 ## Test
 
 ```bash
 # unit tests
-$ yarn run test
+$ npm run test
 
 # e2e tests
-$ yarn run test:e2e
+$ npm run test:e2e
 
 # test coverage
-$ yarn run test:cov
+$ npm run test:cov
 ```
 
 ## Support

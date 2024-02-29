@@ -1,25 +1,22 @@
 # Build image
-FROM node:20-alpine as build
+FROM node:20-alpine as builder
 
-WORKDIR /usr/src/app
+WORKDIR /app
+
+COPY package*.json ./
+COPY prisma ./prisma/
+
+RUN npm install
 
 COPY . .
 
-# Production image
-FROM node:20-alpine as production
+RUN npm run build
 
-WORKDIR /usr/src/app
+FROM node:20-alpine
 
-ARG NODE_ENV=production
-ENV NODE_ENV=${NODE_ENV}
-
-COPY --from=build /usr/src/app/dist ./dist
-
-COPY package.json yarn.lock ./
-
-RUN yarn install --production --frozen-lockfile
-
-RUN rm package.json yarn.lock
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 

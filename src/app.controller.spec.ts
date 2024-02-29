@@ -15,8 +15,12 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return "Hello Staging!"', () => {
+      expect(appController.getHello()).toBe('Hello Staging!');
+    });
+
+    it('should return "Goodbye Staging!"', () => {
+      expect(appController.sendGoodbye()).toBe('Goodbye Staging!');
     });
   });
 });

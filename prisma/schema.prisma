@@ -10,9 +10,153 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  CREATOR
+  RESPONDENT
+}
+
 model User {
-  id       String  @id @default(uuid())
-  email    String  @unique
-  name     String?
-  password String
+  id                  String      @id @default(uuid())
+  email               String      @unique
+  roles               Role[]
+  password            String?
+  ssoUsername         String?
+  firstName           String?
+  lastName            String?
+  phoneNumber         String?
+  gender              String?
+  companyName         String?
+  birthDate           DateTime?
+  credit              Int?
+  isVerified          Boolean     @default(false)
+  isBlocked           Boolean     @default(false)
+  hasCompletedProfile Boolean     @default(false)
+  Admin               Admin?
+  Creator             Creator?
+  Respondent          Respondent?
+  Payment             Payment[]
+  ReportTo            Report[]    @relation("to")
+  ReportFrom          Report[]    @relation("from")
+}
+
+model Admin {
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Creator {
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  emailNotificationActive Boolean @default(true)
+  Form                    Form[]
+}
+
+model Respondent {
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  pity          Int             @default(0)
+  Answer        Answer[]
+  Participation Participation[]
+  Winner        Winner[]
+}
+
+model Payment {
+  id     String @id @default(uuid())
+  itemId Int
+  item   Item   @relation(fields: [itemId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Item {
+  id          Int       @id @default(autoincrement())
+  title       String
+  price       Int
+  description String
+  Payment     Payment[]
+}
+
+model Report {
+  toUserId   String
+  toUser     User   @relation("to", fields: [toUserId], references: [id])
+  fromUserId String
+  fromUser   User   @relation("from", fields: [fromUserId], references: [id])
+
+  message String
+
+  @@id([toUserId, fromUserId])
+}
+
+model Form {
+  id String @id @default(uuid())
+
+  creatorId String
+  creator   Creator @relation(fields: [creatorId], references: [userId])
+
+  Question      Question[]
+  Answer        Answer[]
+  Participation Participation[]
+  Winner        Winner[]
+}
+
+model Participation {
+  respondentId            String
+  respondent              Respondent @relation(fields: [respondentId], references: [userId])
+  formId                  String
+  form                    Form       @relation(fields: [formId], references: [id])
+  isCompleted             Boolean
+  emailNotificationActive Boolean    @default(true)
+
+  @@id([respondentId, formId])
+}
+
+model Winner {
+  respondentId String
+  respondent   Respondent @relation(fields: [respondentId], references: [userId])
+  formId       String
+  form         Form       @relation(fields: [formId], references: [id])
+
+  isPaid Boolean @default(false)
+
+  @@id([respondentId, formId])
+}
+
+// TODO: Question type can be tricky
+
+model Question {
+  formId String
+  form   Form   @relation(fields: [formId], references: [id])
+  no     Int
+
+  type     String // possibly ENUM
+  question String
+  choices  Json // {"A": "Yes", "B": "No"}
+  Answer   Answer[]
+
+  @@id([formId, no])
+}
+
+model Answer {
+  formId       String
+  form         Form       @relation(fields: [formId], references: [id])
+  questionNo   Int
+  question     Question   @relation(fields: [formId, questionNo], references: [formId, no])
+  respondentId String
+  respondent   Respondent @relation(fields: [respondentId], references: [userId])
+  answer       String[]
+
+  @@id([formId, questionNo, respondentId])
+}
+
+model VerificationToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  email     String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+
+  @@map("verification_tokens")
 }
