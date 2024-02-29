@@ -72,6 +72,8 @@ Deploy-Staging:
   stage: deploy
   only:
     - staging
+  before_script:
+    - apk update && apk add --no-cache openssh-client
   script:
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY $GCP_USERNAME@$GCP_STATIC_IP "
       docker container rm -f ${CONTAINER_NAME}-staging || true &&
@@ -83,6 +85,8 @@ Deploy-Production:
   stage: deploy
   only:
     - main
+  before_script:
+    - apk update && apk add --no-cache openssh-client
   script:
     - ssh -o StrictHostKeyChecking=no -i $SSH_KEY $GCP_USERNAME@$GCP_STATIC_IP "
       docker container rm -f $CONTAINER_NAME || true &&
