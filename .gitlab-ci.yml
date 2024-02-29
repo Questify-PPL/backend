@@ -74,12 +74,10 @@ Deploy-Staging:
   only:
     - staging
   before_script:
-    - mkdir -p ~/.ssh
-    - echo "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-    - chmod 400 ~/.ssh/id_rsa
-    - apk update && apk add --no-cache openssh-client
+    - chmod 400 $SSH_KEY
+    - apk update && apk add openssh-client
   script:
-    - ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa $GCP_USERNAME@$GCP_STATIC_IP "
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY $GCP_USERNAME@$GCP_STATIC_IP "
       docker container rm -f ${CONTAINER_NAME}-staging || true &&
       docker image rm -f $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG || true &&
       docker run --name ${CONTAINER_NAME}-staging -d -e DATABASE_URL=$DATABASE_URL -e JWT_SECRET=$JWT_SECRET -e JWT_EXPIRES_IN=$JWT_EXPIRES_IN -e CLOUDINARY_NAME=$CLOUDINARY_NAME -e CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY -e CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET -e USERNAME_SMTP_GMAIL=$USERNAME_SMTP_GMAIL -e PASSWORD_SMTP_GMAIL=$PASSWORD_SMTP_GMAIL -e NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL -p 8000:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG &&
@@ -92,12 +90,10 @@ Deploy-Production:
   only:
     - main
   before_script:
-    - mkdir -p ~/.ssh
-    - echo "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-    - chmod 400 ~/.ssh/id_rsa
-    - apk update && apk add --no-cache openssh-client
+    - chmod 400 $SSH_KEY
+    - apk update && apk add openssh-client
   script:
-    - ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa $GCP_USERNAME@$GCP_STATIC_IP "
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY $GCP_USERNAME@$GCP_STATIC_IP "
       docker container rm -f $CONTAINER_NAME || true &&
       docker image rm -f $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG || true &&
       docker run --name $CONTAINER_NAME -d -e DATABASE_URL=$DATABASE_URL -e JWT_SECRET=$JWT_SECRET -e JWT_EXPIRES_IN=$JWT_EXPIRES_IN -e CLOUDINARY_NAME=$CLOUDINARY_NAME -e CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY -e CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET -e USERNAME_SMTP_GMAIL=$USERNAME_SMTP_GMAIL -e PASSWORD_SMTP_GMAIL=$PASSWORD_SMTP_GMAIL -e NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL -p 3001:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG &&
