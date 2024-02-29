@@ -7,6 +7,15 @@ variables:
   CONTAINER_NAME: $CONTAINER_NAME
   GCP_USERNAME: $GCP_USERNAME
   GCP_STATIC_IP: $GCP_STATIC_IP
+  DATABASE_URL: $DATABASE_URL
+  JWT_SECRET: $JWT_SECRET
+  JWT_EXPIRES_IN: $JWT_EXPIRES_IN
+  CLOUDINARY_NAME: $CLOUDINARY_NAME
+  CLOUDINARY_API_KEY: $CLOUDINARY_API_KEY
+  CLOUDINARY_API_SECRET: $CLOUDINARY_API_SECRET
+  USERNAME_SMTP_GMAIL: $USERNAME_SMTP_GMAIL
+  PASSWORD_SMTP_GMAIL: $PASSWORD_SMTP_GMAIL
+  NEXT_PUBLIC_BASE_URL: $NEXT_PUBLIC_BASE_URL
   SONAR_USER_HOME: '${CI_PROJECT_DIR}/.sonar' # Defines the location of the analysis task cache
   GIT_DEPTH: '0' # Tells git to fetch all the branches of the project, required by the analysis task
 
@@ -28,10 +37,6 @@ Build:
     - npm ci
   script:
     - npm run build
-  artifacts:
-    paths:
-      - dist/
-    expire_in: 1 week
 
 Test:
   stage: test
@@ -45,25 +50,45 @@ Test:
       - coverage/
   coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
 
+Publish:
+  stage: publish
+  image: docker:latest
+  services:
+    - docker:dind
+  dependencies:
+    - Build
+  before_script:
+    - echo $DOCKER_PASSWORD| docker login -u $REGISTRY_USER --password-stdin docker.io
+  script:
+    - docker build -t $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG .
+    - docker push $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG
+  tags:
+    - dind
+  only:
+    - main
+    - staging
+
 Deploy-Staging:
   stage: deploy
   only:
     - staging
   script:
-    - npm install --global vercel
-    - vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
-    - vercel build --token=$VERCEL_TOKEN
-    - vercel deploy --prebuilt --token=$VERCEL_TOKEN
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY $GCP_USERNAME@$GCP_STATIC_IP "
+      docker container rm -f $CONTAINER_NAME || true &&
+      docker image rm -f $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG || true &&
+      docker run --name $CONTAINER_NAME -d -e DATABASE_URL=$DATABASE_URL -e JWT_SECRET=$JWT_SECRET -e JWT_EXPIRES_IN=$JWT_EXPIRES_IN -e CLOUDINARY_NAME=$CLOUDINARY_NAME -e CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY -e CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET -e USERNAME_SMTP_GMAIL=$USERNAME_SMTP_GMAIL -e PASSWORD_SMTP_GMAIL=$PASSWORD_SMTP_GMAIL -e NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL -p 8000:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG &&
+      docker images --quiet --filter=dangling=true | xargs --no-run-if-empty docker rmi"
 
 Deploy-Production:
   stage: deploy
   only:
     - main
   script:
-    - npm install --global vercel
-    - vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-    - vercel build --prod --token=$VERCEL_TOKEN
-    - vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY $GCP_USERNAME@$GCP_STATIC_IP "
+      docker container rm -f $CONTAINER_NAME || true &&
+      docker image rm -f $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG || true &&
+      docker run --name $CONTAINER_NAME -d -e DATABASE_URL=$DATABASE_URL -e JWT_SECRET=$JWT_SECRET -e JWT_EXPIRES_IN=$JWT_EXPIRES_IN -e CLOUDINARY_NAME=$CLOUDINARY_NAME -e CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY -e CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET -e USERNAME_SMTP_GMAIL=$USERNAME_SMTP_GMAIL -e PASSWORD_SMTP_GMAIL=$PASSWORD_SMTP_GMAIL -e NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL -p 3001:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG &&
+      docker images --quiet --filter=dangling=true | xargs --no-run-if-empty docker rmi"
 
 sonarcloud-check:
   stage: sonarcloud-check
@@ -78,7 +103,4 @@ sonarcloud-check:
     - sonar-scanner
   dependencies:
     - Test
-  only:
-    - staging
-    - main
   allow_failure: true

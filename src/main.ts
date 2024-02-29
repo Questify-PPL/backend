@@ -14,8 +14,6 @@ async function bootstrap() {
     }),
   );
 
-  console.log('Listening on Port ' + (process.env.PORT || 3001));
-
   const config = new DocumentBuilder()
     .setTitle('Questify API')
     .setDescription('Questify PPL API documentation')
@@ -25,6 +23,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(process.env.PORT || 3001);
+  await app.listen(process.env.PORT || 3001, () => {
+    console.log('Listening on Port ' + (process.env.PORT || 3001));
+  });
 }
 bootstrap();
