@@ -9,7 +9,6 @@ import { JwtService } from '@nestjs/jwt';
 import { AxiosResponse } from 'axios';
 import * as bcrypt from 'bcrypt';
 import { XMLParser } from 'fast-xml-parser';
-import { firstValueFrom } from 'rxjs';
 import { LoginDTO, RegisterDTO, SSOAuthDTO } from 'src/dto';
 import { EmailService } from 'src/email/email.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -185,8 +184,9 @@ export class AuthService {
   private async getDataFromSSO(ticket: string, serviceURL: string) {
     const url = `https://sso.ui.ac.id/cas2/serviceValidate?ticket=${ticket}&service=${serviceURL}`;
     try {
-      const request = this.httpService.get(url);
-      const response = await firstValueFrom(request);
+      const response = await this.httpService.axiosRef.get(url, {
+        timeout: 7500,
+      });
 
       if (response.status !== 200) {
         throw new BadRequestException(
