@@ -275,6 +275,21 @@ describe('AuthService', () => {
     );
   });
 
+  it('should send BadRequestException if CAS Server timedout', async () => {
+    jest.spyOn(httpService, 'get').mockImplementation(() => {
+      throw { code: 'ETIMEDOUT' };
+    });
+
+    const ssoDTO = {
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    };
+
+    await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
+      'CAS Server is down, please try again later',
+    );
+  });
+
   it('should send BadRequestException if parsed XML is invalid', async () => {
     const mockResponse: AxiosResponse<any> = {
       status: 200,
