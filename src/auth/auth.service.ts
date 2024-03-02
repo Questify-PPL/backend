@@ -184,26 +184,34 @@ export class AuthService {
 
   private async getDataFromSSO(ticket: string, serviceURL: string) {
     const url = `https://sso.ui.ac.id/cas2/serviceValidate?ticket=${ticket}&service=${serviceURL}`;
+    try {
+      const request = this.httpService.get(url);
+      const response = await firstValueFrom(request);
 
-    const request = this.httpService.get(url);
+      if (response.status !== 200) {
+        throw new BadRequestException(
+          'CAS Server failed to response, please try again later',
+        );
+      }
 
-    const response = await firstValueFrom(request);
+      const data = await this.parseSSOData(response);
 
-    if (response.status !== 200) {
-      throw new BadRequestException(
-        'CAS Server failed to response, please try again later',
-      );
+      return {
+        user: data['cas:user'],
+        username: data['cas:attributes']['cas:nama'],
+        kd_org: data['cas:attributes']['cas:kd_org'],
+        peran_user: data['cas:attributes']['cas:peran_user'],
+        npm: data['cas:attributes']['cas:npm'],
+      };
+    } catch (error) {
+      if (error.code === 'ETIMEDOUT') {
+        throw new BadRequestException(
+          'CAS Server is down, please try again later',
+        );
+      } else {
+        throw new BadRequestException(error.message);
+      }
     }
-
-    const data = await this.parseSSOData(response);
-
-    return {
-      user: data['cas:user'],
-      username: data['cas:attributes']['cas:nama'],
-      kd_org: data['cas:attributes']['cas:kd_org'],
-      peran_user: data['cas:attributes']['cas:peran_user'],
-      npm: data['cas:attributes']['cas:npm'],
-    };
   }
 
   private async parseSSOData(response: AxiosResponse<any, any>) {
