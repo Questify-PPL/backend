@@ -196,15 +196,23 @@ export class AuthService {
 
       const data = await this.parseSSOData(response);
 
-      return {
+      const extractedData = {
         user: data['cas:user'],
         username: data['cas:attributes']['cas:nama'],
         kd_org: data['cas:attributes']['cas:kd_org'],
         peran_user: data['cas:attributes']['cas:peran_user'],
         npm: data['cas:attributes']['cas:npm'],
       };
+
+      if (extractedData.peran_user == 'tamu') {
+        throw new BadRequestException(
+          'Please use your SSO account instead of guest account',
+        );
+      }
+
+      return extractedData;
     } catch (error) {
-      if (error.code === 'ETIMEDOUT') {
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
         throw new BadRequestException(
           'CAS Server is down, please try again later',
         );
