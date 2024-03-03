@@ -277,11 +277,26 @@ describe('AuthService', () => {
     );
   });
 
-  it('should send BadRequestException if CAS Server timed out', async () => {
+  it('should send BadRequestException if CAS Server timed out detoned when status code ETIMEDOUT', async () => {
     // Directly mock the axiosRef.get method to reject with a timeout error
     jest
       .spyOn(httpService.axiosRef, 'get')
       .mockRejectedValue({ code: 'ETIMEDOUT' });
+
+    const ssoDTO = {
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    };
+
+    await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
+      'CAS Server is down, please try again later',
+    );
+  });
+
+  it('should send BadRequestException if CAS Server timed out detoned when status code ECONNABORTED', async () => {
+    jest
+      .spyOn(httpService.axiosRef, 'get')
+      .mockRejectedValue({ code: 'ECONNABORTED' });
 
     const ssoDTO = {
       ticket: 'ticket',
@@ -313,6 +328,41 @@ describe('AuthService', () => {
 
     await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
       'Failed to parse XML',
+    );
+  });
+
+  it('should send BadRequestException if user is a guest', async () => {
+    const mockResponse = {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {
+        headers: {} as any,
+      },
+      data: `
+        <cas:serviceResponse>
+          <cas:authenticationSuccess>
+            <cas:user>user</cas:user>
+            <cas:attributes>
+              <cas:nama>username</cas:nama>
+              <cas:kd_org>kd_org</cas:kd_org>
+              <cas:peran_user>tamu</cas:peran_user>
+              <cas:npm>npm</cas:npm>
+            </cas:attributes>
+          </cas:authenticationSuccess>
+        </cas:serviceResponse>
+      `,
+    };
+
+    jest.spyOn(httpService.axiosRef, 'get').mockResolvedValue(mockResponse);
+
+    const ssoDTO = {
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    };
+
+    await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
+      'Please use your SSO account instead of guest account',
     );
   });
 
