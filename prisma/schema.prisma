@@ -58,7 +58,6 @@ model Respondent {
   user   User   @relation(fields: [userId], references: [id])
 
   pity          Int             @default(0)
-  Answer        Answer[]
   Participation Participation[]
   Winner        Winner[]
 }
@@ -96,10 +95,32 @@ model Form {
   creatorId String
   creator   Creator @relation(fields: [creatorId], references: [userId])
 
-  Question      Question[]
-  Answer        Answer[]
+  title          String
+  description    String
+  isDraft        Boolean @default(true)
+  isPublished    Boolean @default(false)
+  maxParticipant Int?
+
   Participation Participation[]
   Winner        Winner[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  endedAt   DateTime?
+  Section   Section[]
+  Answer    Answer[]
+}
+
+model Section {
+  formId    String
+  form      Form   @relation(fields: [formId], references: [id])
+  sectionId Int    @default(autoincrement())
+
+  title       String
+  description String
+  Question    Question[]
+
+  @@id([formId, sectionId])
 }
 
 model Participation {
@@ -107,7 +128,7 @@ model Participation {
   respondent              Respondent @relation(fields: [respondentId], references: [userId])
   formId                  String
   form                    Form       @relation(fields: [formId], references: [id])
-  isCompleted             Boolean
+  isCompleted             Boolean    @default(false)
   emailNotificationActive Boolean    @default(true)
 
   @@id([respondentId, formId])
@@ -124,31 +145,74 @@ model Winner {
   @@id([respondentId, formId])
 }
 
-// TODO: Question type can be tricky
+enum QuestionType {
+  TEXT // Applicable for SHORT_TEXT, LONG_TEXT, DATE, EMAIL, NUMBER, RATING, TIME, LINK, DROPDOWN
+  CHECKBOX
+  RADIO // Applicable for MULTIPLE_CHOICE, Yes/No, TRUE, LIKERT
+}
 
 model Question {
-  formId String
-  form   Form   @relation(fields: [formId], references: [id])
-  no     Int
+  formId    String
+  sectionId Int
+  Section   Section @relation(fields: [formId, sectionId], references: [formId, sectionId])
 
-  type     String // possibly ENUM
-  question String
-  choices  Json // {"A": "Yes", "B": "No"}
-  Answer   Answer[]
+  no Int
 
-  @@id([formId, no])
+  questionType QuestionType
+
+  isRequired Boolean @default(false)
+
+  question    String
+  description String?
+
+  Text     Text?
+  Checkbox Checkbox?
+  Radio    Radio?
+
+  @@id([formId, sectionId, no])
+}
+
+model Text {
+  formId    String
+  sectionId Int
+  no        Int
+  question  Question @relation(fields: [formId, sectionId, no], references: [formId, sectionId, no])
+
+  @@id([formId, sectionId, no])
+}
+
+model Checkbox {
+  formId    String
+  sectionId Int
+  no        Int
+  question  Question @relation(fields: [formId, sectionId, no], references: [formId, sectionId, no])
+  choice    String[]
+
+  @@id([formId, sectionId, no])
+}
+
+model Radio {
+  formId    String
+  sectionId Int
+  no        Int
+  question  Question @relation(fields: [formId, sectionId, no], references: [formId, sectionId, no])
+  choice    String[]
+
+  @@id([formId, sectionId, no])
 }
 
 model Answer {
-  formId       String
-  form         Form       @relation(fields: [formId], references: [id])
-  questionNo   Int
-  question     Question   @relation(fields: [formId, questionNo], references: [formId, no])
   respondentId String
-  respondent   Respondent @relation(fields: [respondentId], references: [userId])
-  answer       String[]
+  formId       String
+  form         Form   @relation(fields: [formId], references: [id])
 
-  @@id([formId, questionNo, respondentId])
+  // Store the answer in JSON format, the key is the section, 
+  // value is an object containing keys of questionNumber
+  // and value of the answer
+  answer    Json
+  createdAt DateTime @default(now())
+
+  @@id([respondentId, formId])
 }
 
 model VerificationToken {
