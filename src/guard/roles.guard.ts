@@ -1,16 +1,21 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   canActivate(context: ExecutionContext): boolean {
-    return false;
+    const roles = this.reflector.get<Role[]>('roles', context.getHandler());
+    if (!roles) {
+      return true;
+    }
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+    return this.matchRoles(roles, user.role);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  matchRoles() {
-    return false;
+  matchRoles(roles: Role[], userRole: Role) {
+    return roles.some((role) => role === Role.ADMIN || role === userRole);
   }
 }
