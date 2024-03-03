@@ -96,7 +96,7 @@ model Form {
   creator   Creator @relation(fields: [creatorId], references: [userId])
 
   title          String
-  description    String
+  prize          Int
   isDraft        Boolean @default(true)
   isPublished    Boolean @default(false)
   maxParticipant Int?
@@ -107,7 +107,7 @@ model Form {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   endedAt   DateTime?
-  Section   Section[]
+  Section   Section[] // Better include Opening and Closing as section
   Answer    Answer[]
 }
 
@@ -116,8 +116,8 @@ model Section {
   form      Form   @relation(fields: [formId], references: [id])
   sectionId Int    @default(autoincrement())
 
-  title       String
-  description String
+  name        String
+  description String?
   Question    Question[]
 
   @@id([formId, sectionId])
