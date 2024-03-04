@@ -16,7 +16,7 @@ describe('RolesGuard', () => {
       getHandler: jest.fn(),
       switchToHttp: jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue({
-          user: { role: Role.ADMIN },
+          user: { roles: [Role.ADMIN] },
         }),
       }),
       getArgByIndex: jest.fn(),
@@ -44,7 +44,7 @@ describe('RolesGuard', () => {
       getHandler: jest.fn(),
       switchToHttp: jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue({
-          user: { role: Role.RESPONDENT },
+          user: { roles: [Role.RESPONDENT] },
         }),
       }),
       getArgByIndex: jest.fn(),
@@ -71,7 +71,7 @@ describe('RolesGuard', () => {
       getHandler: jest.fn(),
       switchToHttp: jest.fn().mockReturnValue({
         getRequest: jest.fn().mockReturnValue({
-          user: { role: Role.ADMIN },
+          user: { roles: [Role.ADMIN] },
         }),
       }),
       getArgByIndex: jest.fn(),
