@@ -120,7 +120,7 @@ model Form {
 
 model Section {
   formId    String
-  form      Form   @relation(fields: [formId], references: [id])
+  form      Form   @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   sectionId Int    @default(autoincrement())
 
   name        String
@@ -133,7 +133,7 @@ model Participation {
   respondentId            String
   respondent              Respondent @relation(fields: [respondentId], references: [userId])
   formId                  String
-  form                    Form       @relation(fields: [formId], references: [id])
+  form                    Form       @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   isCompleted             Boolean    @default(false)
   emailNotificationActive Boolean    @default(true)
 
@@ -144,7 +144,7 @@ model Winner {
   respondentId String
   respondent   Respondent @relation(fields: [respondentId], references: [userId])
   formId       String
-  form         Form       @relation(fields: [formId], references: [id])
+  form         Form       @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   isPaid Boolean @default(false)
 
@@ -160,7 +160,7 @@ enum QuestionType {
 model Question {
   formId    String
   sectionId Int?
-  form      Form   @relation(fields: [formId], references: [id])
+  form      Form   @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   questionId Int @default(autoincrement())
 
