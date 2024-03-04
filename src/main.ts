@@ -10,7 +10,11 @@ async function bootstrap() {
   app.enableCors({ origin: '*' });
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // remove non-whitelisted properties
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      whitelist: true,
     }),
   );
 
