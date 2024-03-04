@@ -1,4 +1,79 @@
-import { Controller } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { Role } from '@prisma/client';
+import { CurrentUser, Roles } from 'src/decorator';
+import { JwtAuthGuard, RolesGuard } from 'src/guard';
+import { FormService } from './form.service';
+import { CreateFormDTO, UpdateFormDTO } from 'src/dto';
 
+@ApiTags('form')
 @Controller('form')
-export class FormController {}
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class FormController {
+  constructor(private readonly formService: FormService) {}
+
+  @Get('/')
+  @Roles(Role.RESPONDENT)
+  getAllAvailableForm() {
+    return null;
+  }
+
+  @Get('/creator')
+  @Roles(Role.RESPONDENT, Role.CREATOR)
+  getOwnedForm(@CurrentUser('id') userId: string) {
+    return null;
+  }
+
+  @Roles(Role.RESPONDENT)
+  @Get('/respondent')
+  getFilledForm(@CurrentUser('id') userId: string) {
+    return null;
+  }
+
+  @Post()
+  @Roles(Role.CREATOR)
+  createForm(
+    @CurrentUser('id') userId: string,
+    @Body() createFormDTO: CreateFormDTO,
+  ) {
+    return null;
+  }
+
+  @Patch('/:formId')
+  @Roles(Role.CREATOR)
+  updateForm(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+    @Body() updateFormDTO: UpdateFormDTO,
+  ) {
+    return null;
+  }
+
+  @Delete('/:formId')
+  @Roles(Role.CREATOR)
+  deleteForm(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return null;
+  }
+
+  @Delete('/:formId/question/:questionId')
+  @Roles(Role.CREATOR)
+  deleteQuestion(
+    @Param('formId') formId: string,
+    @Param('questionId') questionId: number,
+    @CurrentUser('id') userId: string,
+  ) {
+    return null;
+  }
+}
