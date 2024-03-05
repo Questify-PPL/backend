@@ -6,6 +6,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { EmailModule } from './email/email.module';
 import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './user/user.module';
+import { FormModule } from './form/form.module';
+import { QuestionnaireCreationModule } from './questionnaire-creation/questionnaire-creation.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { UserModule } from './user/user.module';
     PrismaModule,
     UserModule,
     EmailModule,
+    FormModule,
+    QuestionnaireCreationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
