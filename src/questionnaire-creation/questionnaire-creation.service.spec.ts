@@ -132,6 +132,21 @@ describe('QuestionnaireCreationService', () => {
         ),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('should throw BadRequestException if form is already published', async () => {
+      mockPrismaService.form.findUnique.mockResolvedValue({
+        isPublished: true,
+      });
+      await expect(
+        service.updateDraft(
+          'existingFormId',
+          'validCreatorId',
+          'Title',
+          'EVEN',
+          100,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('finalizeQuestionnaire', () => {
