@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Form, PrizeType } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -53,13 +57,7 @@ export class QuestionnaireCreationService {
     maxParticipant?: number,
     maxWinner?: number,
   ) {
-    const form = await this.prismaService.form.findUnique({
-      where: { id: formId },
-    });
-
-    if (!form) {
-      throw new NotFoundException(`Questionnaire with ID ${formId} not found.`);
-    }
+    await this.getFormAndCheckState(formId);
 
     this.prismaService.form.update({
       where: { id: formId },
@@ -92,13 +90,7 @@ export class QuestionnaireCreationService {
   }
 
   async finalizeQuestionnaire(formId: string) {
-    const form = await this.prismaService.form.findUnique({
-      where: { id: formId },
-    });
-
-    if (!form) {
-      throw new NotFoundException(`Questionnaire with ID ${formId} not found.`);
-    }
+    await this.getFormAndCheckState(formId);
 
     this.prismaService.form.update({
       where: { id: formId },
@@ -114,6 +106,24 @@ export class QuestionnaireCreationService {
         isPublished: true,
       },
     };
+  }
+
+  private async getFormAndCheckState(formId: string): Promise<Form> {
+    const form = await this.prismaService.form.findUnique({
+      where: { id: formId },
+    });
+
+    if (!form) {
+      throw new NotFoundException(`Questionnaire with ID ${formId} not found.`);
+    }
+
+    if (form.isPublished !== false) {
+      throw new BadRequestException(
+        'Questionnaire is already finalized/published',
+      );
+    }
+
+    return form;
   }
 
   async findQuestionnaireById(formId: string): Promise<Form | null> {
