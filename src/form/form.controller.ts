@@ -24,19 +24,19 @@ export class FormController {
   @Get('/')
   @Roles(Role.RESPONDENT)
   getAllAvailableForm() {
-    return null;
+    return this.formService.getAllAvailableForm();
   }
 
   @Get('/creator')
   @Roles(Role.RESPONDENT, Role.CREATOR)
   getOwnedForm(@CurrentUser('id') userId: string) {
-    return null;
+    return this.formService.getOwnedForm(userId);
   }
 
   @Roles(Role.RESPONDENT)
   @Get('/respondent')
   getFilledForm(@CurrentUser('id') userId: string) {
-    return null;
+    return this.formService.getFilledForm(userId);
   }
 
   @Post()
@@ -45,7 +45,7 @@ export class FormController {
     @CurrentUser('id') userId: string,
     @Body() createFormDTO: CreateFormDTO,
   ) {
-    return null;
+    return this.formService.createForm(userId, createFormDTO);
   }
 
   @Patch('/:formId')
@@ -55,7 +55,7 @@ export class FormController {
     @CurrentUser('id') userId: string,
     @Body() updateFormDTO: UpdateFormDTO,
   ) {
-    return null;
+    return this.formService.updateForm(formId, userId, updateFormDTO);
   }
 
   @Delete('/:formId')
@@ -64,7 +64,7 @@ export class FormController {
     @Param('formId') formId: string,
     @CurrentUser('id') userId: string,
   ) {
-    return null;
+    return this.formService.deleteForm(formId, userId);
   }
 
   @Delete('/:formId/question/:questionId')
@@ -74,6 +74,6 @@ export class FormController {
     @Param('questionId') questionId: number,
     @CurrentUser('id') userId: string,
   ) {
-    return null;
+    return this.formService.deleteQuestion(formId, questionId, userId);
   }
 }
