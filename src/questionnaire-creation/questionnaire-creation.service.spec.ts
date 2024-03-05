@@ -66,6 +66,39 @@ describe('QuestionnaireCreationService', () => {
         data: form,
       });
     });
+
+    it('should create a draft with minimal required fields', async () => {
+      const minimalFormData = {
+        creatorId: 'creatorId',
+        title: 'Minimal Draft',
+        prizeType: PrizeType.EVEN,
+        prize: 1,
+        isDraft: true,
+        isPublished: false,
+        maxParticipant: undefined,
+        maxWinner: undefined,
+      };
+      mockPrismaService.form.create.mockResolvedValue({
+        ...minimalFormData,
+        isDraft: true,
+        isPublished: false,
+      });
+
+      const result = await service.createDraft(
+        minimalFormData.creatorId,
+        minimalFormData.title,
+        minimalFormData.prizeType,
+        minimalFormData.prize,
+      );
+      expect(result).toEqual({
+        data: minimalFormData,
+        message: 'Draft successfully created.',
+        statusCode: 201,
+      });
+      expect(mockPrismaService.form.create).toHaveBeenCalledWith({
+        data: expect.objectContaining(minimalFormData),
+      });
+    });
   });
 
   describe('updateDraft', () => {
@@ -146,6 +179,54 @@ describe('QuestionnaireCreationService', () => {
           100,
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+    it('should update the draft with minimal prize', async () => {
+      const formId = 'existingFormId';
+
+      const updateData = {
+        title: 'Updated Title',
+        prizeType: PrizeType.EVEN,
+        prize: 1,
+        isDraft: true,
+        isPublished: false,
+        maxParticipant: undefined,
+        maxWinner: undefined,
+      };
+      mockPrismaService.form.findUnique.mockResolvedValue({
+        id: formId,
+        isPublished: false,
+      });
+      mockPrismaService.form.update.mockResolvedValue({
+        id: formId,
+        ...updateData,
+        isDraft: true,
+        isPublished: false,
+      });
+
+      const result = await service.updateDraft(
+        formId,
+        'validCreatorId',
+        updateData.title,
+        updateData.prizeType,
+        updateData.prize,
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          data: {
+            formId,
+            creatorId: 'validCreatorId',
+            isDraft: true,
+            isPublished: false,
+            maxParticipant: undefined,
+            maxWinner: undefined,
+            prize: 1,
+            prizeType: 'EVEN',
+            title: 'Updated Title',
+          },
+          message: 'Draft successfully updated.',
+          statusCode: 200,
+        }),
+      );
     });
   });
 
