@@ -29,6 +29,10 @@ export class FormService {
     };
   }
 
+  async getFormById(formId: string) {
+    return formId;
+  }
+
   async getOwnedForm(userId: string) {
     const forms = await this.prismaService.form.findMany({
       where: {

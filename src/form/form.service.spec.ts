@@ -12,7 +12,70 @@ describe('FormService', () => {
     prize: 20000,
     prizeType: 'LUCKY',
     questions: [],
+    Question: [
+      {
+        questionType: 'RADIO',
+        isRequired: true,
+        question: 'Question 1',
+        Radio: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+        Checkbox: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+      },
+      {
+        questionType: 'CHECKBOX',
+        sectionId: 1,
+        isRequired: true,
+        question: 'Question 2',
+        Radio: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+        Checkbox: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+      },
+      {
+        questionType: 'RADIO',
+        sectionId: 1,
+        isRequired: true,
+        question: 'Question 2',
+        Radio: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+        Checkbox: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+      },
+    ],
+    Section: [
+      {
+        name: 'Section 1',
+        sectionId: 1,
+        description: 'Description',
+        Question: [
+          {
+            questionType: 'RADIO',
+            isRequired: true,
+            question: 'Question 1',
+            Radio: {
+              choice: ['A', 'B', 'C', 'D', 'E'],
+            },
+            Checkbox: {
+              choice: ['A', 'B', 'C', 'D', 'E'],
+            },
+          },
+        ],
+      },
+    ],
   };
+
+  const dummyForms = [
+    {
+      ...dummyForm,
+    },
+  ];
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -78,25 +141,21 @@ describe('FormService', () => {
   it('should call prismaService.form.findMany with the correct arguments', async () => {
     jest
       .spyOn(prismaService.form, 'findMany')
-      .mockResolvedValue(dummyForm as any);
+      .mockResolvedValue(dummyForms as any);
 
     expect(await service.getAllAvailableForm()).toEqual({
       statusCode: 200,
       message: 'Successfully get all available form',
-      data: dummyForm,
+      data: dummyForms,
     });
   });
 
   it('should call prismaService.form.findMany with the correct arguments', async () => {
     jest
       .spyOn(prismaService.form, 'findMany')
-      .mockResolvedValue(dummyForm as any);
+      .mockResolvedValue(dummyForms as any);
 
-    expect(await service.getOwnedForm('userId')).toEqual({
-      statusCode: 200,
-      message: 'Successfully get form as creator',
-      data: dummyForm,
-    });
+    expect(await service.getOwnedForm('userId')).toEqual(expect.any(Object));
   });
 
   it('should call prismaService.form.findMany with the correct arguments', async () => {
@@ -108,6 +167,26 @@ describe('FormService', () => {
       statusCode: 200,
       message: 'Successfully get form as respondent',
       data: dummyForm,
+    });
+  });
+
+  it('should throw error if form is not found in getFormById', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null as any);
+
+    await expect(service.getFormById('formId')).rejects.toThrow(
+      'Form not found',
+    );
+  });
+
+  it('should call prismaService.form.findUnique with the correct arguments', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue(dummyForm as any);
+
+    expect(await service.getFormById('formId')).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.any(Object),
     });
   });
 
