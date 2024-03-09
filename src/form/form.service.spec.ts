@@ -263,6 +263,34 @@ describe('FormService', () => {
     ).rejects.toThrow('Question is required for DEFAULT type');
   });
 
+  it('should throw an error if the form is already been published in update form', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId', isPublished: true } as any);
+
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      formQuestions: [
+        {
+          type: 'DEFAULT',
+          question: {
+            questionType: 'RADIO',
+            isRequired: true,
+            question: 'Question 2',
+            choice: ['A', 'B', 'C', 'D', 'E'],
+          },
+        },
+      ],
+    };
+
+    await expect(
+      service.updateForm('formId', 'userId', updateDTO as any),
+    ).rejects.toThrow('Form is already published');
+  });
+
   it('should call prismaService.form.update with the correct arguments', async () => {
     jest
       .spyOn(prismaService.form, 'findUnique')
