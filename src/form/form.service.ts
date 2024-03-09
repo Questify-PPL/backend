@@ -164,7 +164,7 @@ export class FormService {
             try {
               await this.processQuestion(formId, section.sectionId, question);
             } catch (error) {
-              console.log(error);
+              console.log(error.response);
             }
           });
         } else {
@@ -175,7 +175,7 @@ export class FormService {
           );
         }
       } catch (error) {
-        console.log(error);
+        console.log(error.response);
       }
     });
   }
