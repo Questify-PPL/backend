@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FormService } from './form.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { BadRequestException } from '@nestjs/common';
 
 describe('FormService', () => {
   let service: FormService;
@@ -276,6 +277,125 @@ describe('FormService', () => {
       prize: 20000,
       prizeType: 'LUCKY',
       maxWinner: 1,
+    };
+
+    expect(
+      await service.updateForm('formId', 'userId', updateDTO as any),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update form',
+      data: dummyForm,
+    });
+  });
+
+  it('should handle error when creating form questions if sectionId and questionId does not exists on database', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.form, 'update')
+      .mockResolvedValue(dummyForm as any);
+
+    jest
+      .spyOn(prismaService.section, 'update')
+      .mockRejectedValue(new BadRequestException('Section not found'));
+
+    jest
+      .spyOn(prismaService.question, 'update')
+      .mockRejectedValue(new BadRequestException('Question not found'));
+
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      formQuestions: [
+        {
+          type: 'SECTION',
+          sectionId: 1,
+          sectionName: 'Section 1',
+          sectionDescription: 'Description',
+          questions: [
+            {
+              questionType: 'RADIO',
+              isRequired: true,
+              question: 'Question 1',
+              choice: ['A', 'B', 'C', 'D', 'E'],
+            },
+          ],
+        },
+        {
+          type: 'DEFAULT',
+          question: {
+            questionId: 2,
+            questionType: 'RADIO',
+            isRequired: true,
+            question: 'Question 2',
+            choice: ['A', 'B', 'C', 'D', 'E'],
+          },
+        },
+      ],
+    };
+
+    expect(
+      await service.updateForm('formId', 'userId', updateDTO as any),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update form',
+      data: dummyForm,
+    });
+  });
+
+  it('should handle error when creating form questions if questionId on sections does not exists on database', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.form, 'update')
+      .mockResolvedValue(dummyForm as any);
+
+    jest.spyOn(prismaService.section, 'update').mockResolvedValue({
+      id: 1,
+      name: 'Section 1',
+      formId: 'formId',
+    } as any);
+
+    jest
+      .spyOn(prismaService.question, 'update')
+      .mockRejectedValue(new BadRequestException('Question not found'));
+
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      formQuestions: [
+        {
+          type: 'SECTION',
+          sectionName: 'Section 1',
+          sectionDescription: 'Description',
+          questions: [
+            {
+              questionId: 1,
+              questionType: 'RADIO',
+              isRequired: true,
+              question: 'Question 1',
+              choice: ['A', 'B', 'C', 'D', 'E'],
+            },
+          ],
+        },
+        {
+          type: 'DEFAULT',
+          question: {
+            questionType: 'RADIO',
+            isRequired: true,
+            question: 'Question 2',
+            choice: ['A', 'B', 'C', 'D', 'E'],
+          },
+        },
+      ],
     };
 
     expect(
