@@ -32,33 +32,6 @@ export class FormService {
     };
   }
 
-  async getFormById(formId: string) {
-    const form = await this.prismaService.form.findUnique({
-      where: {
-        id: formId,
-      },
-      include: {
-        Question: {
-          include: {
-            Radio: true,
-            Checkbox: true,
-          },
-        },
-        Section: true,
-      },
-    });
-
-    if (!form) {
-      throw new BadRequestException('Form not found');
-    }
-
-    return {
-      statusCode: 200,
-      message: 'Successfully get form',
-      data: this.processFormForCreator(form),
-    };
-  }
-
   async getOwnedForm(userId: string) {
     const forms = await this.processFormsForCreator(userId);
 
@@ -83,6 +56,33 @@ export class FormService {
       statusCode: 200,
       message: 'Successfully get form as respondent',
       data: forms,
+    };
+  }
+
+  async getFormById(formId: string) {
+    const form = await this.prismaService.form.findUnique({
+      where: {
+        id: formId,
+      },
+      include: {
+        Question: {
+          include: {
+            Radio: true,
+            Checkbox: true,
+          },
+        },
+        Section: true,
+      },
+    });
+
+    if (!form) {
+      throw new BadRequestException('Form not found');
+    }
+
+    return {
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: this.processFormForCreator(form),
     };
   }
 
@@ -472,7 +472,32 @@ export class FormService {
       },
     });
 
-    return forms;
+    const formsWithStats = forms.map(async (form) => {
+      const ongoingParticipation = await this.prismaService.participation.count(
+        {
+          where: {
+            formId: form.id,
+            isCompleted: false,
+          },
+        },
+      );
+
+      const completedParticipation =
+        await this.prismaService.participation.count({
+          where: {
+            formId: form.id,
+            isCompleted: true,
+          },
+        });
+
+      return {
+        ...form,
+        ongoingParticipation,
+        completedParticipation,
+      };
+    });
+
+    return Promise.all(formsWithStats);
   }
 
   private processFormForCreator(

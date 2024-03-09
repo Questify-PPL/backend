@@ -27,12 +27,6 @@ export class FormController {
     return this.formService.getAllAvailableForm();
   }
 
-  @Get('/:formId')
-  @Roles(Role.RESPONDENT, Role.CREATOR)
-  getFormById(@Param('formId') formId: string) {
-    return this.formService.getFormById(formId);
-  }
-
   @Get('/creator')
   @Roles(Role.RESPONDENT, Role.CREATOR)
   getOwnedForm(@CurrentUser('id') userId: string) {
@@ -43,6 +37,12 @@ export class FormController {
   @Get('/respondent')
   getFilledForm(@CurrentUser('id') userId: string) {
     return this.formService.getFilledForm(userId);
+  }
+
+  @Get('/:formId')
+  @Roles(Role.RESPONDENT, Role.CREATOR)
+  getFormById(@Param('formId') formId: string) {
+    return this.formService.getFormById(formId);
   }
 
   @Post()
