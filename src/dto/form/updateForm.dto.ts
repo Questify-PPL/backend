@@ -26,6 +26,14 @@ export class Question {
   questionType: QuestionType;
 
   @ApiProperty({
+    title: 'Question Type Name',
+    type: String,
+  })
+  @IsNotEmpty()
+  @IsString()
+  questionTypeName: string;
+
+  @ApiProperty({
     title: 'Is Required',
     type: Boolean,
   })
