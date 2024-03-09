@@ -3,6 +3,9 @@ import {
   Section,
   Question as QuestionPrisma,
   QuestionType,
+  Form,
+  Radio,
+  Checkbox,
 } from '@prisma/client';
 import { CreateFormDTO, FormQuestion, Question, UpdateFormDTO } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -30,15 +33,34 @@ export class FormService {
   }
 
   async getFormById(formId: string) {
-    return formId;
+    const form = await this.prismaService.form.findUnique({
+      where: {
+        id: formId,
+      },
+      include: {
+        Question: {
+          include: {
+            Radio: true,
+            Checkbox: true,
+          },
+        },
+        Section: true,
+      },
+    });
+
+    if (!form) {
+      throw new BadRequestException('Form not found');
+    }
+
+    return {
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: this.processFormForCreator(form),
+    };
   }
 
   async getOwnedForm(userId: string) {
-    const forms = await this.prismaService.form.findMany({
-      where: {
-        creatorId: userId,
-      },
-    });
+    const forms = await this.processFormsForCreator(userId);
 
     return {
       statusCode: 200,
@@ -441,5 +463,89 @@ export class FormService {
     }
 
     await updateOrDelete(this.prismaService, questionType, 'update');
+  }
+
+  private async processFormsForCreator(userId: string) {
+    const forms = await this.prismaService.form.findMany({
+      where: {
+        creatorId: userId,
+      },
+      include: {
+        Question: {
+          include: {
+            Radio: true,
+            Checkbox: true,
+          },
+        },
+        Section: true,
+      },
+    });
+
+    const formattedForms = forms.map((form) => {
+      return this.processFormForCreator(form);
+    });
+
+    return formattedForms;
+  }
+
+  private processFormForCreator(
+    form: Form & {
+      Question: (QuestionPrisma & { Radio: Radio; Checkbox: Checkbox })[];
+      Section: Section[];
+    },
+  ) {
+    const groupQuestionBySectionIfExist = form.Question.reduce(
+      (acc, question) => {
+        const questionWithChoice = this.excludeKeys(
+          {
+            ...question,
+            ...(question.questionType === 'RADIO' && {
+              choice: question.Radio.choice,
+            }),
+            ...(question.questionType === 'CHECKBOX' && {
+              choice: question.Checkbox.choice,
+            }),
+          },
+          ['Radio', 'Checkbox'],
+        );
+
+        if (question.sectionId) {
+          const section = form.Section.find(
+            (section) => section.sectionId === question.sectionId,
+          );
+          const sectionIndex = acc.findIndex(
+            (section) => section.sectionId === question.sectionId,
+          );
+
+          if (sectionIndex === -1) {
+            acc.push({
+              ...section,
+              questions: [questionWithChoice],
+            });
+          } else {
+            acc[sectionIndex].questions.push(questionWithChoice);
+          }
+        } else {
+          acc.push(questionWithChoice);
+        }
+
+        return acc;
+      },
+      [],
+    );
+
+    return this.excludeKeys(
+      {
+        ...form,
+        questions: groupQuestionBySectionIfExist,
+      },
+      ['Question', 'Section'],
+    );
+  }
+
+  private excludeKeys<T, K extends keyof T>(form: T, keys: K[]): Omit<T, K> {
+    return Object.fromEntries(
+      Object.entries(form).filter(([key]) => !keys.includes(key as K)),
+    ) as Omit<T, K>;
   }
 }
