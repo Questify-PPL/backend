@@ -88,7 +88,7 @@ export class FormService {
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
-    await this.validateUserOnForm(formId, userId);
+    await this.validateUserOnForm(formId, userId, true);
 
     if (updateFormDTO.formQuestions) this.validateFormQuestions(formQuestions);
 
@@ -180,7 +180,11 @@ export class FormService {
     });
   }
 
-  private async validateUserOnForm(formId: string, userId: string) {
+  private async validateUserOnForm(
+    formId: string,
+    userId: string,
+    isUpdating = false,
+  ) {
     const form = await this.prismaService.form.findUnique({
       where: {
         id: formId,
@@ -194,6 +198,10 @@ export class FormService {
 
     if (form.creatorId !== userId) {
       throw new BadRequestException('User is not authorized to modify form');
+    }
+
+    if (isUpdating && form.isPublished) {
+      throw new BadRequestException('Form is already published');
     }
   }
 
