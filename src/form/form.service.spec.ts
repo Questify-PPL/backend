@@ -93,6 +93,7 @@ describe('FormService', () => {
             },
             participation: {
               findMany: jest.fn().mockResolvedValue({}),
+              count: jest.fn().mockResolvedValue(0),
             },
             question: {
               findMany: jest.fn().mockResolvedValue({}),

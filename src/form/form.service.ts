@@ -470,22 +470,9 @@ export class FormService {
       where: {
         creatorId: userId,
       },
-      include: {
-        Question: {
-          include: {
-            Radio: true,
-            Checkbox: true,
-          },
-        },
-        Section: true,
-      },
     });
 
-    const formattedForms = forms.map((form) => {
-      return this.processFormForCreator(form);
-    });
-
-    return formattedForms;
+    return forms;
   }
 
   private processFormForCreator(
