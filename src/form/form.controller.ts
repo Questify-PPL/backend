@@ -39,6 +39,12 @@ export class FormController {
     return this.formService.getFilledForm(userId);
   }
 
+  @Get('/:formId')
+  @Roles(Role.RESPONDENT, Role.CREATOR)
+  getFormById(@Param('formId') formId: string) {
+    return this.formService.getFormById(formId);
+  }
+
   @Post()
   @Roles(Role.CREATOR)
   createForm(

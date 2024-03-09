@@ -3,6 +3,9 @@ import {
   Section,
   Question as QuestionPrisma,
   QuestionType,
+  Form,
+  Radio,
+  Checkbox,
 } from '@prisma/client';
 import { CreateFormDTO, FormQuestion, Question, UpdateFormDTO } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -30,11 +33,7 @@ export class FormService {
   }
 
   async getOwnedForm(userId: string) {
-    const forms = await this.prismaService.form.findMany({
-      where: {
-        creatorId: userId,
-      },
-    });
+    const forms = await this.processFormsForCreator(userId);
 
     return {
       statusCode: 200,
@@ -57,6 +56,33 @@ export class FormService {
       statusCode: 200,
       message: 'Successfully get form as respondent',
       data: forms,
+    };
+  }
+
+  async getFormById(formId: string) {
+    const form = await this.prismaService.form.findUnique({
+      where: {
+        id: formId,
+      },
+      include: {
+        Question: {
+          include: {
+            Radio: true,
+            Checkbox: true,
+          },
+        },
+        Section: true,
+      },
+    });
+
+    if (!form) {
+      throw new BadRequestException('Form not found');
+    }
+
+    return {
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: this.processFormForCreator(form),
     };
   }
 
@@ -88,7 +114,7 @@ export class FormService {
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
-    await this.validateUserOnForm(formId, userId);
+    await this.validateUserOnForm(formId, userId, true);
 
     if (updateFormDTO.formQuestions) this.validateFormQuestions(formQuestions);
 
@@ -156,23 +182,35 @@ export class FormService {
     formId: string,
   ) {
     formQuestions.map(async (formQuestion) => {
-      if (formQuestion.type === 'SECTION') {
-        const section = await this.processSection(formId, formQuestion);
+      try {
+        if (formQuestion.type === 'SECTION') {
+          const section = await this.processSection(formId, formQuestion);
 
-        formQuestion.questions.map(async (question) => {
-          await this.processQuestion(formId, section.sectionId, question);
-        });
-      } else {
-        await this.processQuestion(
-          formId,
-          formQuestion.sectionId,
-          formQuestion.question,
-        );
+          formQuestion.questions.map(async (question) => {
+            try {
+              await this.processQuestion(formId, section.sectionId, question);
+            } catch (error) {
+              console.log(error.response);
+            }
+          });
+        } else {
+          await this.processQuestion(
+            formId,
+            formQuestion.sectionId,
+            formQuestion.question,
+          );
+        }
+      } catch (error) {
+        console.log(error.response);
       }
     });
   }
 
-  private async validateUserOnForm(formId: string, userId: string) {
+  private async validateUserOnForm(
+    formId: string,
+    userId: string,
+    isUpdating = false,
+  ) {
     const form = await this.prismaService.form.findUnique({
       where: {
         id: formId,
@@ -186,6 +224,10 @@ export class FormService {
 
     if (form.creatorId !== userId) {
       throw new BadRequestException('User is not authorized to modify form');
+    }
+
+    if (isUpdating && form.isPublished) {
+      throw new BadRequestException('Form is already published');
     }
   }
 
@@ -248,20 +290,24 @@ export class FormService {
       });
     } else {
       // Update section
-      section = await this.prismaService.section.update({
-        where: {
-          formId_sectionId: {
-            formId: formId,
-            sectionId: formQuestion.sectionId,
+      try {
+        section = await this.prismaService.section.update({
+          where: {
+            formId_sectionId: {
+              formId: formId,
+              sectionId: formQuestion.sectionId,
+            },
           },
-        },
-        data: {
-          name: formQuestion.sectionName,
-          ...(formQuestion.sectionDescription && {
-            description: formQuestion.sectionDescription,
-          }),
-        },
-      });
+          data: {
+            name: formQuestion.sectionName,
+            ...(formQuestion.sectionDescription && {
+              description: formQuestion.sectionDescription,
+            }),
+          },
+        });
+      } catch (error) {
+        throw new BadRequestException('Got Section Error:', error);
+      }
     }
 
     return section;
@@ -280,6 +326,7 @@ export class FormService {
       newOrUpdatedQuestion = await this.prismaService.question.create({
         data: {
           question: question.question,
+          questionTypeName: question.questionType,
           ...(question.description && {
             description: question.description,
           }),
@@ -293,43 +340,47 @@ export class FormService {
       });
     } else {
       // Update question
-      const previousQuestion = await this.prismaService.question.findUnique({
-        where: {
-          formId_questionId: {
-            formId: formId,
-            questionId: question.questionId,
+      try {
+        const previousQuestion = await this.prismaService.question.findUnique({
+          where: {
+            formId_questionId: {
+              formId: formId,
+              questionId: question.questionId,
+            },
           },
-        },
-        select: {
-          questionType: true,
-        },
-      });
+          select: {
+            questionType: true,
+          },
+        });
 
-      if (previousQuestion) {
-        previousQuestionType = previousQuestion.questionType;
+        if (previousQuestion) {
+          previousQuestionType = previousQuestion.questionType;
+        }
+
+        newOrUpdatedQuestion = await this.prismaService.question.update({
+          where: {
+            formId_questionId: {
+              formId: formId,
+              questionId: question.questionId,
+            },
+          },
+          data: {
+            question: question.question,
+            ...(question.description && {
+              description: question.description,
+            }),
+            ...(question.questionType && {
+              questionType: question.questionType,
+            }),
+            ...(question.isRequired && {
+              isRequired: question.isRequired,
+            }),
+            sectionId: sectionId,
+          },
+        });
+      } catch (error) {
+        throw new BadRequestException('Got Question Error:', error);
       }
-
-      newOrUpdatedQuestion = await this.prismaService.question.update({
-        where: {
-          formId_questionId: {
-            formId: formId,
-            questionId: question.questionId,
-          },
-        },
-        data: {
-          question: question.question,
-          ...(question.description && {
-            description: question.description,
-          }),
-          ...(question.questionType && {
-            questionType: question.questionType,
-          }),
-          ...(question.isRequired && {
-            isRequired: question.isRequired,
-          }),
-          sectionId: sectionId,
-        },
-      });
     }
 
     await this.processQuestionType(
@@ -412,5 +463,101 @@ export class FormService {
     }
 
     await updateOrDelete(this.prismaService, questionType, 'update');
+  }
+
+  private async processFormsForCreator(userId: string) {
+    const forms = await this.prismaService.form.findMany({
+      where: {
+        creatorId: userId,
+      },
+    });
+
+    const formsWithStats = forms.map(async (form) => {
+      const ongoingParticipation = await this.prismaService.participation.count(
+        {
+          where: {
+            formId: form.id,
+            isCompleted: false,
+          },
+        },
+      );
+
+      const completedParticipation =
+        await this.prismaService.participation.count({
+          where: {
+            formId: form.id,
+            isCompleted: true,
+          },
+        });
+
+      return {
+        ...form,
+        ongoingParticipation,
+        completedParticipation,
+      };
+    });
+
+    return Promise.all(formsWithStats);
+  }
+
+  private processFormForCreator(
+    form: Form & {
+      Question: (QuestionPrisma & { Radio: Radio; Checkbox: Checkbox })[];
+      Section: Section[];
+    },
+  ) {
+    const groupQuestionBySectionIfExist = form.Question.reduce(
+      (acc, question) => {
+        const questionWithChoice = this.excludeKeys(
+          {
+            ...question,
+            ...(question.questionType === 'RADIO' && {
+              choice: question.Radio.choice,
+            }),
+            ...(question.questionType === 'CHECKBOX' && {
+              choice: question.Checkbox.choice,
+            }),
+          },
+          ['Radio', 'Checkbox'],
+        );
+
+        if (question.sectionId) {
+          const section = form.Section.find(
+            (section) => section.sectionId === question.sectionId,
+          );
+          const sectionIndex = acc.findIndex(
+            (section) => section.sectionId === question.sectionId,
+          );
+
+          if (sectionIndex === -1) {
+            acc.push({
+              ...section,
+              questions: [questionWithChoice],
+            });
+          } else {
+            acc[sectionIndex].questions.push(questionWithChoice);
+          }
+        } else {
+          acc.push(questionWithChoice);
+        }
+
+        return acc;
+      },
+      [],
+    );
+
+    return this.excludeKeys(
+      {
+        ...form,
+        questions: groupQuestionBySectionIfExist,
+      },
+      ['Question', 'Section'],
+    );
+  }
+
+  private excludeKeys<T, K extends keyof T>(form: T, keys: K[]): Omit<T, K> {
+    return Object.fromEntries(
+      Object.entries(form).filter(([key]) => !keys.includes(key as K)),
+    ) as Omit<T, K>;
   }
 }

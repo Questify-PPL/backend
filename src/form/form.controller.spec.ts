@@ -14,6 +14,7 @@ describe('FormController', () => {
           provide: FormService,
           useValue: {
             getAllAvailableForm: jest.fn().mockResolvedValue({}),
+            getFormById: jest.fn().mockResolvedValue({}),
             getOwnedForm: jest.fn().mockResolvedValue({}),
             getFilledForm: jest.fn().mockResolvedValue({}),
             createForm: jest.fn().mockResolvedValue({}),
@@ -34,6 +35,12 @@ describe('FormController', () => {
 
   it('should call formService.getAllAvailableForm with the correct arguments', async () => {
     expect(await controller.getAllAvailableForm()).toEqual({});
+  });
+
+  it('should call formService.getFormById with the correct arguments', async () => {
+    const formId = 'formId';
+
+    expect(await controller.getFormById(formId)).toEqual({});
   });
 
   it('should call formService.getOwnedForm with the correct arguments', async () => {

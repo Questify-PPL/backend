@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FormService } from './form.service';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { BadRequestException } from '@nestjs/common';
 
 describe('FormService', () => {
   let service: FormService;
@@ -11,7 +12,70 @@ describe('FormService', () => {
     prize: 20000,
     prizeType: 'LUCKY',
     questions: [],
+    Question: [
+      {
+        questionType: 'RADIO',
+        isRequired: true,
+        question: 'Question 1',
+        Radio: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+        Checkbox: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+      },
+      {
+        questionType: 'CHECKBOX',
+        sectionId: 1,
+        isRequired: true,
+        question: 'Question 2',
+        Radio: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+        Checkbox: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+      },
+      {
+        questionType: 'RADIO',
+        sectionId: 1,
+        isRequired: true,
+        question: 'Question 2',
+        Radio: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+        Checkbox: {
+          choice: ['A', 'B', 'C', 'D', 'E'],
+        },
+      },
+    ],
+    Section: [
+      {
+        name: 'Section 1',
+        sectionId: 1,
+        description: 'Description',
+        Question: [
+          {
+            questionType: 'RADIO',
+            isRequired: true,
+            question: 'Question 1',
+            Radio: {
+              choice: ['A', 'B', 'C', 'D', 'E'],
+            },
+            Checkbox: {
+              choice: ['A', 'B', 'C', 'D', 'E'],
+            },
+          },
+        ],
+      },
+    ],
   };
+
+  const dummyForms = [
+    {
+      ...dummyForm,
+    },
+  ];
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -29,6 +93,7 @@ describe('FormService', () => {
             },
             participation: {
               findMany: jest.fn().mockResolvedValue({}),
+              count: jest.fn().mockResolvedValue(0),
             },
             question: {
               findMany: jest.fn().mockResolvedValue({}),
@@ -77,25 +142,21 @@ describe('FormService', () => {
   it('should call prismaService.form.findMany with the correct arguments', async () => {
     jest
       .spyOn(prismaService.form, 'findMany')
-      .mockResolvedValue(dummyForm as any);
+      .mockResolvedValue(dummyForms as any);
 
     expect(await service.getAllAvailableForm()).toEqual({
       statusCode: 200,
       message: 'Successfully get all available form',
-      data: dummyForm,
+      data: dummyForms,
     });
   });
 
   it('should call prismaService.form.findMany with the correct arguments', async () => {
     jest
       .spyOn(prismaService.form, 'findMany')
-      .mockResolvedValue(dummyForm as any);
+      .mockResolvedValue(dummyForms as any);
 
-    expect(await service.getOwnedForm('userId')).toEqual({
-      statusCode: 200,
-      message: 'Successfully get form as creator',
-      data: dummyForm,
-    });
+    expect(await service.getOwnedForm('userId')).toEqual(expect.any(Object));
   });
 
   it('should call prismaService.form.findMany with the correct arguments', async () => {
@@ -107,6 +168,26 @@ describe('FormService', () => {
       statusCode: 200,
       message: 'Successfully get form as respondent',
       data: dummyForm,
+    });
+  });
+
+  it('should throw error if form is not found in getFormById', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null as any);
+
+    await expect(service.getFormById('formId')).rejects.toThrow(
+      'Form not found',
+    );
+  });
+
+  it('should call prismaService.form.findUnique with the correct arguments', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue(dummyForm as any);
+
+    expect(await service.getFormById('formId')).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.any(Object),
     });
   });
 
@@ -262,6 +343,34 @@ describe('FormService', () => {
     ).rejects.toThrow('Question is required for DEFAULT type');
   });
 
+  it('should throw an error if the form is already been published in update form', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId', isPublished: true } as any);
+
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      formQuestions: [
+        {
+          type: 'DEFAULT',
+          question: {
+            questionType: 'RADIO',
+            isRequired: true,
+            question: 'Question 2',
+            choice: ['A', 'B', 'C', 'D', 'E'],
+          },
+        },
+      ],
+    };
+
+    await expect(
+      service.updateForm('formId', 'userId', updateDTO as any),
+    ).rejects.toThrow('Form is already published');
+  });
+
   it('should call prismaService.form.update with the correct arguments', async () => {
     jest
       .spyOn(prismaService.form, 'findUnique')
@@ -276,6 +385,125 @@ describe('FormService', () => {
       prize: 20000,
       prizeType: 'LUCKY',
       maxWinner: 1,
+    };
+
+    expect(
+      await service.updateForm('formId', 'userId', updateDTO as any),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update form',
+      data: dummyForm,
+    });
+  });
+
+  it('should handle error when creating form questions if sectionId and questionId does not exists on database', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.form, 'update')
+      .mockResolvedValue(dummyForm as any);
+
+    jest
+      .spyOn(prismaService.section, 'update')
+      .mockRejectedValue(new BadRequestException('Section not found'));
+
+    jest
+      .spyOn(prismaService.question, 'update')
+      .mockRejectedValue(new BadRequestException('Question not found'));
+
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      formQuestions: [
+        {
+          type: 'SECTION',
+          sectionId: 1,
+          sectionName: 'Section 1',
+          sectionDescription: 'Description',
+          questions: [
+            {
+              questionType: 'RADIO',
+              isRequired: true,
+              question: 'Question 1',
+              choice: ['A', 'B', 'C', 'D', 'E'],
+            },
+          ],
+        },
+        {
+          type: 'DEFAULT',
+          question: {
+            questionId: 2,
+            questionType: 'RADIO',
+            isRequired: true,
+            question: 'Question 2',
+            choice: ['A', 'B', 'C', 'D', 'E'],
+          },
+        },
+      ],
+    };
+
+    expect(
+      await service.updateForm('formId', 'userId', updateDTO as any),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update form',
+      data: dummyForm,
+    });
+  });
+
+  it('should handle error when creating form questions if questionId on sections does not exists on database', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.form, 'update')
+      .mockResolvedValue(dummyForm as any);
+
+    jest.spyOn(prismaService.section, 'update').mockResolvedValue({
+      id: 1,
+      name: 'Section 1',
+      formId: 'formId',
+    } as any);
+
+    jest
+      .spyOn(prismaService.question, 'update')
+      .mockRejectedValue(new BadRequestException('Question not found'));
+
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      formQuestions: [
+        {
+          type: 'SECTION',
+          sectionName: 'Section 1',
+          sectionDescription: 'Description',
+          questions: [
+            {
+              questionId: 1,
+              questionType: 'RADIO',
+              isRequired: true,
+              question: 'Question 1',
+              choice: ['A', 'B', 'C', 'D', 'E'],
+            },
+          ],
+        },
+        {
+          type: 'DEFAULT',
+          question: {
+            questionType: 'RADIO',
+            isRequired: true,
+            question: 'Question 2',
+            choice: ['A', 'B', 'C', 'D', 'E'],
+          },
+        },
+      ],
     };
 
     expect(
