@@ -14,8 +14,8 @@ export class UserController {
 
   @Get('/me')
   @Roles(Role.CREATOR, Role.RESPONDENT)
-  getMe(@CurrentUser() user: User) {
-    return user;
+  async getMe(@CurrentUser() user: User) {
+    return this.userService.findUserByRole(user);
   }
 
   @Patch('/update-profile')

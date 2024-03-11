@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UpdateProfileDTO } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { User, Role } from '@prisma/client';
+import { exclude } from 'src/utils';
 
 @Injectable()
 export class UserService {
@@ -32,5 +34,20 @@ export class UserService {
       statusCode: 200,
       message: 'Profile successfully updated',
     };
+  }
+
+  async findUserByRole({ id, roles }: User) {
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id: id,
+      },
+      include: {
+        Admin: roles.includes(Role.ADMIN),
+        Creator: roles.includes(Role.CREATOR),
+        Respondent: roles.includes(Role.RESPONDENT),
+      },
+    });
+
+    return exclude(user, ['password']);
   }
 }
