@@ -23,6 +23,18 @@ describe('FormService', () => {
         Checkbox: {
           choice: ['A', 'B', 'C', 'D', 'E'],
         },
+        Answer: [
+          {
+            respondentId: 'userId',
+            answer: ['A'],
+          },
+          {
+            respondentId: 'userId',
+            answer: {
+              answer: 'A',
+            },
+          },
+        ],
       },
       {
         questionType: 'CHECKBOX',
@@ -35,6 +47,18 @@ describe('FormService', () => {
         Checkbox: {
           choice: ['A', 'B', 'C', 'D', 'E'],
         },
+        Answer: [
+          {
+            respondentId: 'userId',
+            answer: ['A'],
+          },
+          {
+            respondentId: 'userId',
+            answer: {
+              answer: 'A',
+            },
+          },
+        ],
       },
       {
         questionType: 'RADIO',
@@ -47,6 +71,7 @@ describe('FormService', () => {
         Checkbox: {
           choice: ['A', 'B', 'C', 'D', 'E'],
         },
+        Answer: [],
       },
     ],
     Section: [
@@ -65,6 +90,18 @@ describe('FormService', () => {
             Checkbox: {
               choice: ['A', 'B', 'C', 'D', 'E'],
             },
+            Answer: [
+              {
+                respondentId: 'userId',
+                answer: ['A'],
+              },
+              {
+                respondentId: 'userId',
+                answer: {
+                  answer: 'A',
+                },
+              },
+            ],
           },
         ],
       },
@@ -76,6 +113,21 @@ describe('FormService', () => {
       ...dummyForm,
     },
   ];
+
+  const updateParticipationDTO = {
+    questionsAnswer: [
+      {
+        questionId: 1,
+        answer: 'A',
+      },
+      {
+        questionId: 1,
+        answer: ['A'],
+      },
+    ],
+    isCompleted: true,
+    emailNotificationActive: true,
+  } as any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -93,7 +145,10 @@ describe('FormService', () => {
             },
             participation: {
               findMany: jest.fn().mockResolvedValue({}),
+              findUnique: jest.fn().mockResolvedValue({}),
               count: jest.fn().mockResolvedValue(0),
+              upsert: jest.fn().mockResolvedValue({}),
+              update: jest.fn().mockResolvedValue({}),
             },
             question: {
               findMany: jest.fn().mockResolvedValue({}),
@@ -125,6 +180,9 @@ describe('FormService', () => {
               create: jest.fn().mockResolvedValue({}),
               update: jest.fn().mockResolvedValue({}),
               delete: jest.fn().mockResolvedValue({}),
+            },
+            answer: {
+              upsert: jest.fn().mockResolvedValue({}),
             },
           },
         },
@@ -161,30 +219,58 @@ describe('FormService', () => {
 
   it('should call prismaService.form.findMany with the correct arguments', async () => {
     jest
-      .spyOn(prismaService.participation, 'findMany')
-      .mockResolvedValue(dummyForm as any);
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
 
-    expect(await service.getFilledForm('userId')).toEqual({
-      statusCode: 200,
-      message: 'Successfully get form as respondent',
-      data: dummyForm,
-    });
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue([
+      {
+        form: dummyForms,
+      } as any,
+    ]);
+
+    expect(await service.getFilledForm('userId')).toEqual(expect.any(Object));
   });
 
   it('should throw error if form is not found in getFormById', async () => {
     jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null as any);
+    const userId = 'userId';
 
-    await expect(service.getFormById('formId')).rejects.toThrow(
-      'Form not found',
-    );
+    await expect(
+      service.getFormById('formId', 'respondent', userId),
+    ).rejects.toThrow('Form not found');
   });
 
-  it('should call prismaService.form.findUnique with the correct arguments', async () => {
+  it('should throw an error on prismaService.form.findUnique if the type is not creator or respondent', async () => {
     jest
       .spyOn(prismaService.form, 'findUnique')
       .mockResolvedValue(dummyForm as any);
+    const userId = 'userId';
 
-    expect(await service.getFormById('formId')).toEqual({
+    await expect(
+      service.getFormById('formId', 'invalid', userId),
+    ).rejects.toThrow('Type must be creator or respondent');
+  });
+
+  it('should call prismaService.form.findUnique as creator with the correct arguments', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue(dummyForm as any);
+    const userId = 'userId';
+
+    expect(await service.getFormById('formId', 'creator', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should call prismaService.form.findUnique as respondent with the correct arguments', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue(dummyForm as any);
+    const userId = 'userId';
+
+    expect(await service.getFormById('formId', 'respondent', userId)).toEqual({
       statusCode: 200,
       message: 'Successfully get form',
       data: expect.any(Object),
@@ -832,6 +918,136 @@ describe('FormService', () => {
     expect(await service.deleteQuestion('formId', 1, 'userId')).toEqual({
       statusCode: 200,
       message: 'Successfully delete question',
+      data: {},
+    });
+  });
+
+  it('should be able to participate should respondent is found', async () => {
+    jest
+      .spyOn(prismaService.participation, 'upsert')
+      .mockResolvedValue({} as any);
+
+    expect(
+      await service.participateOnQuestionnaire('formId', 'userId'),
+    ).toEqual({
+      statusCode: 201,
+      message: 'Successfully participate in form',
+      data: {},
+    });
+  });
+
+  it('should log the error should prisma service throw an error', async () => {
+    jest
+      .spyOn(prismaService.participation, 'upsert')
+      .mockRejectedValue(new BadRequestException('Error'));
+
+    expect(
+      await service.participateOnQuestionnaire('formId', 'userId'),
+    ).toEqual(undefined);
+  });
+
+  it('should throw error if participation is not found', async () => {
+    jest
+      .spyOn(prismaService.participation, 'findUnique')
+      .mockResolvedValue(null as any);
+
+    expect(
+      service.updateParticipation('formId', 'userId', updateParticipationDTO),
+    ).rejects.toThrow('Participation not found');
+  });
+
+  it('should throw error if respondent is not the authorized', async () => {
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: 'otherUserId',
+    } as any);
+
+    expect(
+      service.updateParticipation('formId', 'userId', updateParticipationDTO),
+    ).rejects.toThrow('User is not authorized to modify participation');
+  });
+
+  it('should throw error if respondent has completed the form', async () => {
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: 'userId',
+      isCompleted: true,
+    } as any);
+
+    const updateParticipationDTO = {
+      questionsAnswer: [],
+    };
+
+    expect(
+      service.updateParticipation('formId', 'userId', updateParticipationDTO),
+    ).rejects.toThrow('You have completed this form');
+  });
+
+  it('should throw an error if processing answer throw an error', async () => {
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: 'userId',
+      isCompleted: false,
+    } as any);
+
+    jest.spyOn(prismaService.answer, 'upsert').mockRejectedValue({} as any);
+
+    jest
+      .spyOn(prismaService.participation, 'update')
+      .mockResolvedValue({} as any);
+
+    expect(
+      await service.updateParticipation(
+        'formId',
+        'userId',
+        updateParticipationDTO,
+      ),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update participation',
+      data: {},
+    });
+  });
+
+  it('should throw an error if updating participation throw an error', async () => {
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: 'userId',
+      isCompleted: false,
+    } as any);
+
+    jest
+      .spyOn(prismaService.participation, 'update')
+      .mockRejectedValue({} as any);
+
+    jest.spyOn(prismaService.answer, 'upsert').mockResolvedValue({} as any);
+
+    expect(
+      await service.updateParticipation(
+        'formId',
+        'userId',
+        updateParticipationDTO,
+      ),
+    ).toEqual(undefined);
+  });
+
+  it('should call prismaService.participation.update with the correct arguments', async () => {
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: 'userId',
+      isCompleted: false,
+    } as any);
+
+    jest
+      .spyOn(prismaService.participation, 'update')
+      .mockResolvedValue({} as any);
+
+    jest.spyOn(prismaService.answer, 'upsert').mockResolvedValue({} as any);
+
+    expect(
+      await service.updateParticipation(
+        'formId',
+        'userId',
+        updateParticipationDTO,
+      ),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update participation',
       data: {},
     });
   });

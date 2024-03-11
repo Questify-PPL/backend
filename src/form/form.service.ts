@@ -7,12 +7,23 @@ import {
   Radio,
   Checkbox,
 } from '@prisma/client';
-import { CreateFormDTO, FormQuestion, Question, UpdateFormDTO } from 'src/dto';
+import {
+  CreateFormDTO,
+  FormQuestion,
+  Question,
+  UpdateFormDTO,
+  UpdateParticipationDTO,
+} from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class FormService {
   constructor(private readonly prismaService: PrismaService) {}
+
+  /*  ======================================================
+        Pembubatan Kuesioner
+      ======================================================
+  */
 
   async getAllAvailableForm() {
     const forms = await this.prismaService.form.findMany({
@@ -59,7 +70,7 @@ export class FormService {
     };
   }
 
-  async getFormById(formId: string) {
+  async getFormById(formId: string, type: string, userId: string) {
     const form = await this.prismaService.form.findUnique({
       where: {
         id: formId,
@@ -176,6 +187,28 @@ export class FormService {
       data: {},
     };
   }
+
+  /*  ======================================================
+        Partisipasi Kuesioner
+      ======================================================
+  */
+
+  async participateOnQuestionnaire(formId: string, userId: string) {
+    return null;
+  }
+
+  async updateParticipation(
+    formId: string,
+    userId: string,
+    updateParticipationDTO: UpdateParticipationDTO,
+  ) {
+    return null;
+  }
+
+  /*  ======================================================
+        Utils
+      ======================================================
+  */
 
   private async processQuestions(
     formQuestions: FormQuestion[],
