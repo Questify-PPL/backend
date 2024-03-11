@@ -4,6 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { JWTDTO } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { exclude } from 'src/utils';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -29,18 +30,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       return null;
     }
 
-    const userWithoutPassword = this.exclude(user, ['password']);
+    const userWithoutPassword = exclude(user, ['password']);
 
     return userWithoutPassword;
-  }
-
-  // Exclude keys from user
-  private exclude<User, Key extends keyof User>(
-    user: User,
-    keys: Key[],
-  ): Omit<User, Key> {
-    return Object.fromEntries(
-      Object.entries(user).filter(([key]) => !keys.includes(key as Key)),
-    ) as Omit<User, Key>;
   }
 }
