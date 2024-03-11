@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -13,7 +14,7 @@ import { Role } from '@prisma/client';
 import { CurrentUser, Roles } from 'src/decorator';
 import { JwtAuthGuard, RolesGuard } from 'src/guard';
 import { FormService } from './form.service';
-import { CreateFormDTO, UpdateFormDTO } from 'src/dto';
+import { CreateFormDTO, UpdateFormDTO, UpdateParticipationDTO } from 'src/dto';
 
 @ApiTags('form')
 @Controller('form')
@@ -41,8 +42,12 @@ export class FormController {
 
   @Get('/:formId')
   @Roles(Role.RESPONDENT, Role.CREATOR)
-  getFormById(@Param('formId') formId: string) {
-    return this.formService.getFormById(formId);
+  getFormById(
+    @Param('formId') formId: string,
+    @Query('type') type: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getFormById(formId, type, userId);
   }
 
   @Post()
@@ -81,5 +86,28 @@ export class FormController {
     @CurrentUser('id') userId: string,
   ) {
     return this.formService.deleteQuestion(formId, questionId, userId);
+  }
+
+  @Roles(Role.RESPONDENT)
+  @Post('/participate/:formId')
+  participateOnQuestionnaire(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.participateOnQuestionnaire(formId, userId);
+  }
+
+  @Roles(Role.RESPONDENT)
+  @Patch('/participate/:formId')
+  updateParticipation(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+    @Body() updateParticipationDTO: UpdateParticipationDTO,
+  ) {
+    return this.formService.updateParticipation(
+      formId,
+      userId,
+      updateParticipationDTO,
+    );
   }
 }

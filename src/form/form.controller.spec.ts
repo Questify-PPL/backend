@@ -21,6 +21,8 @@ describe('FormController', () => {
             updateForm: jest.fn().mockResolvedValue({}),
             deleteForm: jest.fn().mockResolvedValue({}),
             deleteQuestion: jest.fn().mockResolvedValue({}),
+            participateOnQuestionnaire: jest.fn().mockResolvedValue({}),
+            updateParticipation: jest.fn().mockResolvedValue({}),
           },
         },
       ],
@@ -39,8 +41,11 @@ describe('FormController', () => {
 
   it('should call formService.getFormById with the correct arguments', async () => {
     const formId = 'formId';
+    const userId = 'userId';
 
-    expect(await controller.getFormById(formId)).toEqual({});
+    expect(await controller.getFormById(formId, 'respondent', userId)).toEqual(
+      {},
+    );
   });
 
   it('should call formService.getOwnedForm with the correct arguments', async () => {
@@ -96,5 +101,29 @@ describe('FormController', () => {
     expect(await controller.deleteQuestion(formId, questionId, userId)).toEqual(
       {},
     );
+  });
+
+  it('should call formService.participateOnQuestionnaire with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    expect(await controller.participateOnQuestionnaire(formId, userId)).toEqual(
+      {},
+    );
+  });
+
+  it('should call formService.updateParticipation with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    const updateParticipationDTO = {
+      questionsAnswer: [],
+    };
+
+    expect(
+      await controller.updateParticipation(
+        formId,
+        userId,
+        updateParticipationDTO,
+      ),
+    ).toEqual({});
   });
 });

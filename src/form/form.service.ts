@@ -6,13 +6,26 @@ import {
   Form,
   Radio,
   Checkbox,
+  Answer,
 } from '@prisma/client';
-import { CreateFormDTO, FormQuestion, Question, UpdateFormDTO } from 'src/dto';
+import {
+  CreateFormDTO,
+  FormQuestion,
+  Question,
+  QuestionAnswer,
+  UpdateFormDTO,
+  UpdateParticipationDTO,
+} from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class FormService {
   constructor(private readonly prismaService: PrismaService) {}
+
+  /*  ======================================================
+        Pembubatan Kuesioner
+      ======================================================
+  */
 
   async getAllAvailableForm() {
     const forms = await this.prismaService.form.findMany({
@@ -43,14 +56,7 @@ export class FormService {
   }
 
   async getFilledForm(userId: string) {
-    const forms = await this.prismaService.participation.findMany({
-      where: {
-        respondentId: userId,
-      },
-      select: {
-        form: true,
-      },
-    });
+    const forms = await this.processFormsForRespondent(userId);
 
     return {
       statusCode: 200,
@@ -59,7 +65,11 @@ export class FormService {
     };
   }
 
-  async getFormById(formId: string) {
+  async getFormById(formId: string, type: string, userId: string) {
+    if (type !== 'creator' && type !== 'respondent') {
+      throw new BadRequestException('Type must be creator or respondent');
+    }
+
     const form = await this.prismaService.form.findUnique({
       where: {
         id: formId,
@@ -69,6 +79,7 @@ export class FormService {
           include: {
             Radio: true,
             Checkbox: true,
+            Answer: true,
           },
         },
         Section: true,
@@ -79,10 +90,15 @@ export class FormService {
       throw new BadRequestException('Form not found');
     }
 
+    const formattedForm =
+      type === 'creator'
+        ? this.processFormInGeneral(form)
+        : this.processFormInGeneral(form, userId, false);
+
     return {
       statusCode: 200,
       message: 'Successfully get form',
-      data: this.processFormForCreator(form),
+      data: formattedForm,
     };
   }
 
@@ -176,6 +192,86 @@ export class FormService {
       data: {},
     };
   }
+
+  /*  ======================================================
+        Partisipasi Kuesioner
+      ======================================================
+  */
+
+  async participateOnQuestionnaire(formId: string, userId: string) {
+    try {
+      const createdParticipation =
+        await this.prismaService.participation.upsert({
+          where: {
+            respondentId_formId: {
+              formId,
+              respondentId: userId,
+            },
+          },
+          update: {},
+          create: {
+            formId,
+            respondentId: userId,
+            isCompleted: false,
+          },
+        });
+
+      return {
+        statusCode: 201,
+        message: 'Successfully participate in form',
+        data: createdParticipation,
+      };
+    } catch (error) {
+      console.log(error.response);
+    }
+  }
+
+  async updateParticipation(
+    formId: string,
+    userId: string,
+    updateParticipationDTO: UpdateParticipationDTO,
+  ) {
+    const { questionsAnswer, isCompleted, emailNotificationActive } =
+      updateParticipationDTO;
+
+    await this.validateParticipation(formId, userId);
+
+    if (questionsAnswer) {
+      await this.addRespondentAnswerToQuestion(formId, userId, questionsAnswer);
+    }
+
+    try {
+      const participation = await this.prismaService.participation.update({
+        where: {
+          respondentId_formId: {
+            formId,
+            respondentId: userId,
+          },
+        },
+        data: {
+          ...(isCompleted && {
+            isCompleted: isCompleted,
+          }),
+          ...(emailNotificationActive && {
+            emailNotificationActive: emailNotificationActive,
+          }),
+        },
+      });
+
+      return {
+        statusCode: 200,
+        message: 'Successfully update participation',
+        data: participation,
+      };
+    } catch (error) {
+      console.log(error.response);
+    }
+  }
+
+  /*  ======================================================
+        Utils
+      ======================================================
+  */
 
   private async processQuestions(
     formQuestions: FormQuestion[],
@@ -500,11 +596,40 @@ export class FormService {
     return Promise.all(formsWithStats);
   }
 
-  private processFormForCreator(
+  private async processFormsForRespondent(userId: string) {
+    const participations = await this.prismaService.participation.findMany({
+      where: {
+        respondentId: userId,
+      },
+      select: {
+        form: true,
+      },
+    });
+
+    const forms = participations.map(async ({ form }) => {
+      return this.excludeKeys(form, [
+        'creatorId',
+        'isDraft',
+        'isPublished',
+        'maxParticipant',
+        'updatedAt',
+      ]);
+    });
+
+    return Promise.all(forms);
+  }
+
+  private processFormInGeneral(
     form: Form & {
-      Question: (QuestionPrisma & { Radio: Radio; Checkbox: Checkbox })[];
+      Question: (QuestionPrisma & {
+        Radio: Radio;
+        Checkbox: Checkbox;
+        Answer: Answer[];
+      })[];
       Section: Section[];
     },
+    userId?: string,
+    removeAnswer = true,
   ) {
     const groupQuestionBySectionIfExist = form.Question.reduce(
       (acc, question) => {
@@ -517,8 +642,27 @@ export class FormService {
             ...(question.questionType === 'CHECKBOX' && {
               choice: question.Checkbox.choice,
             }),
+            ...(!removeAnswer && {
+              answer:
+                question.Answer.map((answer) => {
+                  const typedAnswer = answer as {
+                    answer?: { answer?: string };
+                  };
+
+                  return {
+                    respondentId: answer.respondentId,
+                    answer: typedAnswer.answer?.answer
+                      ? typedAnswer.answer.answer
+                      : answer.answer,
+                  };
+                })
+                  .filter((answer) => {
+                    return answer.respondentId === userId;
+                  })
+                  .map((answer) => answer.answer)[0] || null,
+            }),
           },
-          ['Radio', 'Checkbox'],
+          ['Answer', 'Radio', 'Checkbox'],
         );
 
         if (question.sectionId) {
@@ -559,5 +703,81 @@ export class FormService {
     return Object.fromEntries(
       Object.entries(form).filter(([key]) => !keys.includes(key as K)),
     ) as Omit<T, K>;
+  }
+
+  private async validateParticipation(formId: string, userId: string) {
+    const participation = await this.prismaService.participation.findUnique({
+      where: {
+        respondentId_formId: {
+          formId,
+          respondentId: userId,
+        },
+      },
+    });
+
+    if (!participation) {
+      throw new BadRequestException('Participation not found');
+    }
+
+    if (participation.respondentId !== userId) {
+      throw new BadRequestException(
+        'User is not authorized to modify participation',
+      );
+    }
+
+    if (participation.isCompleted) {
+      throw new BadRequestException('You have completed this form');
+    }
+  }
+
+  private async addRespondentAnswerToQuestion(
+    formId: string,
+    userId: string,
+    questionsAnswer: QuestionAnswer[],
+  ) {
+    questionsAnswer.map(async (questionsAnswer) => {
+      try {
+        await this.processAnswer(
+          formId,
+          userId,
+          questionsAnswer.questionId,
+          questionsAnswer.answer,
+        );
+      } catch (error) {
+        console.log(error.response);
+      }
+    });
+  }
+
+  private async processAnswer(
+    formId: string,
+    userId: string,
+    questionId: number,
+    answer: any,
+  ) {
+    if (typeof answer === 'string') {
+      answer = {
+        answer: answer,
+      };
+    }
+
+    await this.prismaService.answer.upsert({
+      where: {
+        respondentId_questionId_formId: {
+          respondentId: userId,
+          questionId: questionId,
+          formId: formId,
+        },
+      },
+      create: {
+        respondentId: userId,
+        questionId: questionId,
+        formId: formId,
+        answer: answer,
+      },
+      update: {
+        answer: answer,
+      },
+    });
   }
 }
