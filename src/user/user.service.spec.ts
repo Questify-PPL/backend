@@ -3,6 +3,14 @@ import { UserService } from './user.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import { plainToClass } from 'class-transformer';
+import { validate } from 'class-validator';
+import { UpdateProfileDTO } from 'src/dto';
+
+jest.mock('src/utils', () => ({
+  __esModule: true,
+  exclude: jest.fn(),
+}));
 
 describe('UserService', () => {
   let service: UserService;
@@ -17,6 +25,7 @@ describe('UserService', () => {
           useValue: {
             user: {
               update: jest.fn(),
+              findUnique: jest.fn(),
             },
           },
         },
@@ -155,5 +164,56 @@ describe('UserService', () => {
         new NotFoundException(`User with ID ${userId} not found`),
       );
     });
+  });
+
+  describe('findUserByRole', () => {
+    it('should call prisma service with include roles', async () => {
+      const user = {
+        id: 'c29dbf60-380f-466b-a1ba-adc84fc51292',
+        email: 'questify@gmail.com',
+        password: 'questify',
+        roles: [Role.ADMIN, Role.CREATOR, Role.RESPONDENT],
+        ssoUsername: null,
+        firstName: null,
+        lastName: null,
+        phoneNumber: null,
+        gender: null,
+        companyName: null,
+        birthDate: null,
+        credit: null,
+        isVerified: true,
+        isBlocked: false,
+        hasCompletedProfile: false,
+      };
+      await service.findUserByRole(user);
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: {
+          id: user.id,
+        },
+        include: {
+          Admin: true,
+          Creator: true,
+          Respondent: true,
+        },
+      });
+    });
+  });
+
+  it('should transform and validate correctly', async () => {
+    const plainData = {
+      fullName: 'John Doe',
+      phoneNumber: '1234567890',
+      gender: 'MALE',
+      companyName: 'Tech Inc.',
+      birthDate: '1990-01-01', // This should be transformed into a Date object
+    };
+
+    const dtoInstance = plainToClass(UpdateProfileDTO, plainData);
+
+    const errors = await validate(dtoInstance);
+
+    expect(errors).toHaveLength(0);
+
+    expect(dtoInstance.birthDate).toBeInstanceOf(Date);
   });
 });

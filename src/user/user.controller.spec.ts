@@ -33,8 +33,10 @@ describe('UserController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('should return current user', () => {
-    expect(controller.getMe({} as User)).toEqual({});
+  it('should return current user', async () => {
+    jest.spyOn(userService, 'findUserByRole').mockImplementation();
+    await controller.getMe({} as User);
+    expect(userService.findUserByRole).toHaveBeenCalled();
   });
 
   describe('updateProfile', () => {

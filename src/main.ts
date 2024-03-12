@@ -2,15 +2,22 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import tracer from './tracer';
 
 async function bootstrap() {
+  tracer.start();
+
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api/v1');
 
   app.enableCors({ origin: '*' });
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // remove non-whitelisted properties
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      whitelist: true,
     }),
   );
 

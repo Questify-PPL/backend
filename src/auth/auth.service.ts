@@ -9,7 +9,6 @@ import { JwtService } from '@nestjs/jwt';
 import { AxiosResponse } from 'axios';
 import * as bcrypt from 'bcrypt';
 import { XMLParser } from 'fast-xml-parser';
-import { firstValueFrom } from 'rxjs';
 import { LoginDTO, RegisterDTO, SSOAuthDTO } from 'src/dto';
 import { EmailService } from 'src/email/email.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -184,26 +183,43 @@ export class AuthService {
 
   private async getDataFromSSO(ticket: string, serviceURL: string) {
     const url = `https://sso.ui.ac.id/cas2/serviceValidate?ticket=${ticket}&service=${serviceURL}`;
+    try {
+      const response = await this.httpService.axiosRef.get(url, {
+        timeout: 7500,
+      });
 
-    const request = this.httpService.get(url);
+      if (response.status !== 200) {
+        throw new BadRequestException(
+          'CAS Server failed to response, please try again later',
+        );
+      }
 
-    const response = await firstValueFrom(request);
+      const data = await this.parseSSOData(response);
 
-    if (response.status !== 200) {
-      throw new BadRequestException(
-        'CAS Server failed to response, please try again later',
-      );
+      const extractedData = {
+        user: data['cas:user'],
+        username: data['cas:attributes']['cas:nama'],
+        kd_org: data['cas:attributes']['cas:kd_org'],
+        peran_user: data['cas:attributes']['cas:peran_user'],
+        npm: data['cas:attributes']['cas:npm'],
+      };
+
+      if (extractedData.peran_user == 'tamu') {
+        throw new BadRequestException(
+          'Please use your SSO account instead of guest account',
+        );
+      }
+
+      return extractedData;
+    } catch (error) {
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+        throw new BadRequestException(
+          'CAS Server is down, please try again later',
+        );
+      } else {
+        throw new BadRequestException(error.message);
+      }
     }
-
-    const data = await this.parseSSOData(response);
-
-    return {
-      user: data['cas:user'],
-      username: data['cas:attributes']['cas:nama'],
-      kd_org: data['cas:attributes']['cas:kd_org'],
-      peran_user: data['cas:attributes']['cas:peran_user'],
-      npm: data['cas:attributes']['cas:npm'],
-    };
   }
 
   private async parseSSOData(response: AxiosResponse<any, any>) {

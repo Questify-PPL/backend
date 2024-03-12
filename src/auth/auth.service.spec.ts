@@ -5,7 +5,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { LoginDTO } from 'src/dto';
 import { NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { of } from 'rxjs';
 import { AxiosResponse } from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import { ConfigService } from '@nestjs/config';
@@ -47,6 +46,9 @@ describe('AuthService', () => {
           provide: HttpService,
           useValue: {
             get: jest.fn(),
+            axiosRef: {
+              get: jest.fn(),
+            },
           },
         },
         {
@@ -253,7 +255,7 @@ describe('AuthService', () => {
   });
 
   it('should send BadRequestException if CAS server is unavailable', async () => {
-    const mockResponse: AxiosResponse<any> = {
+    const mockResponse = {
       status: 500,
       statusText: 'Internal Server Error',
       headers: {},
@@ -263,7 +265,7 @@ describe('AuthService', () => {
       data: ``,
     };
 
-    jest.spyOn(httpService, 'get').mockReturnValue(of(mockResponse));
+    jest.spyOn(httpService.axiosRef, 'get').mockResolvedValue(mockResponse);
 
     const ssoDTO = {
       ticket: 'ticket',
@@ -272,6 +274,37 @@ describe('AuthService', () => {
 
     await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
       'CAS Server failed to response, please try again later',
+    );
+  });
+
+  it('should send BadRequestException if CAS Server timed out detoned when status code ETIMEDOUT', async () => {
+    // Directly mock the axiosRef.get method to reject with a timeout error
+    jest
+      .spyOn(httpService.axiosRef, 'get')
+      .mockRejectedValue({ code: 'ETIMEDOUT' });
+
+    const ssoDTO = {
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    };
+
+    await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
+      'CAS Server is down, please try again later',
+    );
+  });
+
+  it('should send BadRequestException if CAS Server timed out detoned when status code ECONNABORTED', async () => {
+    jest
+      .spyOn(httpService.axiosRef, 'get')
+      .mockRejectedValue({ code: 'ECONNABORTED' });
+
+    const ssoDTO = {
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    };
+
+    await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
+      'CAS Server is down, please try again later',
     );
   });
 
@@ -286,7 +319,7 @@ describe('AuthService', () => {
       data: `Invalid XML`,
     };
 
-    jest.spyOn(httpService, 'get').mockReturnValue(of(mockResponse));
+    jest.spyOn(httpService.axiosRef, 'get').mockResolvedValue(mockResponse);
 
     const ssoDTO = {
       ticket: 'ticket',
@@ -298,8 +331,43 @@ describe('AuthService', () => {
     );
   });
 
+  it('should send BadRequestException if user is a guest', async () => {
+    const mockResponse = {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config: {
+        headers: {} as any,
+      },
+      data: `
+        <cas:serviceResponse>
+          <cas:authenticationSuccess>
+            <cas:user>user</cas:user>
+            <cas:attributes>
+              <cas:nama>username</cas:nama>
+              <cas:kd_org>kd_org</cas:kd_org>
+              <cas:peran_user>tamu</cas:peran_user>
+              <cas:npm>npm</cas:npm>
+            </cas:attributes>
+          </cas:authenticationSuccess>
+        </cas:serviceResponse>
+      `,
+    };
+
+    jest.spyOn(httpService.axiosRef, 'get').mockResolvedValue(mockResponse);
+
+    const ssoDTO = {
+      ticket: 'ticket',
+      serviceURL: 'serviceURL',
+    };
+
+    await expect(service.loginSSO(ssoDTO)).rejects.toThrow(
+      'Please use your SSO account instead of guest account',
+    );
+  });
+
   it('should send BadRequestException if authentication failure happens', async () => {
-    const mockResponse: AxiosResponse<any> = {
+    const mockResponse = {
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -315,7 +383,7 @@ describe('AuthService', () => {
       `,
     };
 
-    jest.spyOn(httpService, 'get').mockReturnValue(of(mockResponse));
+    jest.spyOn(httpService.axiosRef, 'get').mockResolvedValue(mockResponse);
 
     const ssoDTO = {
       ticket: 'ticket',
@@ -327,7 +395,7 @@ describe('AuthService', () => {
 
   it('should handle loginSSO correctly and register if user does not exist', async () => {
     // Mock the HTTP request
-    const mockResponse: AxiosResponse<any> = {
+    const mockResponse = {
       status: 200,
       statusText: 'OK',
       headers: {},
@@ -349,7 +417,7 @@ describe('AuthService', () => {
       `,
     };
 
-    jest.spyOn(httpService, 'get').mockReturnValue(of(mockResponse));
+    jest.spyOn(httpService.axiosRef, 'get').mockResolvedValue(mockResponse);
 
     // Mock the XML parsing
     const parser = new XMLParser({

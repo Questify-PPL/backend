@@ -89,10 +89,9 @@ Deploy-Staging:
       -e CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY \
       -e CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET \
       -e USERNAME_SMTP_GMAIL=$USERNAME_SMTP_GMAIL \
-      -e \"PASSWORD_SMTP_GMAIL='$PASSWORD_SMTP_GMAIL'\" \
+      -e PASSWORD_SMTP_GMAIL=\"$PASSWORD_SMTP_GMAIL\" \
       -e NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL \
-      -p 8000:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG &&
-      docker images --quiet --filter=dangling=true | xargs --no-run-if-empty docker rmi"
+      -p 8000:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG"
   tags:
     - deploy
 
@@ -117,10 +116,9 @@ Deploy-Production:
       -e CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY \
       -e CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET \
       -e USERNAME_SMTP_GMAIL=$USERNAME_SMTP_GMAIL \
-      -e \"PASSWORD_SMTP_GMAIL='$PASSWORD_SMTP_GMAIL'\" \
+      -e PASSWORD_SMTP_GMAIL=\"$PASSWORD_SMTP_GMAIL\" \
       -e NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL \
-      -p 3001:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG &&
-      docker images --quiet --filter=dangling=true | xargs --no-run-if-empty docker rmi"
+      -p 3001:3001 $REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG"
   tags:
     - deploy
 

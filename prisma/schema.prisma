@@ -58,7 +58,6 @@ model Respondent {
   user   User   @relation(fields: [userId], references: [id])
 
   pity          Int             @default(0)
-  Answer        Answer[]
   Participation Participation[]
   Winner        Winner[]
 }
@@ -90,24 +89,53 @@ model Report {
   @@id([toUserId, fromUserId])
 }
 
+enum PrizeType {
+  EVEN
+  LUCKY
+}
+
 model Form {
   id String @id @default(uuid())
 
   creatorId String
   creator   Creator @relation(fields: [creatorId], references: [userId])
 
-  Question      Question[]
-  Answer        Answer[]
+  title          String
+  prize          Int
+  isDraft        Boolean   @default(true)
+  isPublished    Boolean   @default(false)
+  maxParticipant Int?
+  prizeType      PrizeType
+  maxWinner      Int?
+
   Participation Participation[]
   Winner        Winner[]
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  endedAt   DateTime?
+  Section   Section[] // Better include Opening and Closing as section
+  Question  Question[]
+}
+
+model Section {
+  formId    String
+  form      Form   @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sectionId Int    @default(autoincrement())
+
+  name        String
+  description String?
+  Question    Question[]
+
+  @@id([formId, sectionId])
 }
 
 model Participation {
   respondentId            String
   respondent              Respondent @relation(fields: [respondentId], references: [userId])
   formId                  String
-  form                    Form       @relation(fields: [formId], references: [id])
-  isCompleted             Boolean
+  form                    Form       @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  isCompleted             Boolean    @default(false)
   emailNotificationActive Boolean    @default(true)
 
   @@id([respondentId, formId])
@@ -117,38 +145,91 @@ model Winner {
   respondentId String
   respondent   Respondent @relation(fields: [respondentId], references: [userId])
   formId       String
-  form         Form       @relation(fields: [formId], references: [id])
+  form         Form       @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   isPaid Boolean @default(false)
 
   @@id([respondentId, formId])
 }
 
-// TODO: Question type can be tricky
+enum QuestionType {
+  TEXT // Applicable for SHORT_TEXT, LONG_TEXT, DATE, EMAIL, NUMBER, RATING, TIME, LINK, DROPDOWN
+  CHECKBOX
+  RADIO // Applicable for MULTIPLE_CHOICE, Yes/No, TRUE, LIKERT
+}
 
 model Question {
-  formId String
-  form   Form   @relation(fields: [formId], references: [id])
-  no     Int
+  formId    String
+  sectionId Int?
+  section   Section? @relation(fields: [formId, sectionId], references: [formId, sectionId], onDelete: Cascade, onUpdate: Cascade)
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  type     String // possibly ENUM
-  question String
-  choices  Json // {"A": "Yes", "B": "No"}
+  questionId Int @default(autoincrement())
+
+  questionType     QuestionType
+  questionTypeName String
+
+  isRequired Boolean @default(false)
+
+  question    String
+  description String?
+
+  Text     Text?
+  Checkbox Checkbox?
+  Radio    Radio?
   Answer   Answer[]
 
-  @@id([formId, no])
+  @@id([formId, questionId])
+}
+
+model Text {
+  formId     String
+  questionId Int
+
+  question Question @relation(fields: [formId, questionId], references: [formId, questionId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([formId, questionId])
+}
+
+model Checkbox {
+  formId     String
+  questionId Int
+
+  question Question @relation(fields: [formId, questionId], references: [formId, questionId], onDelete: Cascade, onUpdate: Cascade)
+
+  choice String[]
+
+  @@id([formId, questionId])
+}
+
+model Radio {
+  formId     String
+  questionId Int
+
+  question Question @relation(fields: [formId, questionId], references: [formId, questionId], onDelete: Cascade, onUpdate: Cascade)
+  choice   String[]
+
+  @@id([formId, questionId])
 }
 
 model Answer {
-  formId       String
-  form         Form       @relation(fields: [formId], references: [id])
-  questionNo   Int
-  question     Question   @relation(fields: [formId, questionNo], references: [formId, no])
   respondentId String
-  respondent   Respondent @relation(fields: [respondentId], references: [userId])
-  answer       String[]
+  formId       String
+  questionId   Int
+  Question     Question @relation(fields: [formId, questionId], references: [formId, questionId], onDelete: Cascade, onUpdate: Cascade)
 
-  @@id([formId, questionNo, respondentId])
+  // Store the answer in JSON format, the key is the nswer, 
+  // value is an string or array of string, depends on the question type
+  // and value of the answer
+  // format like: 
+  //  {"answer": "test123"}
+  // or
+  // {"answer": ["test123", "test456"]}
+  // 
+  answer    Json
+  createdAt DateTime @default(now())
+
+  @@id([respondentId, questionId, formId])
 }
 
 model VerificationToken {
