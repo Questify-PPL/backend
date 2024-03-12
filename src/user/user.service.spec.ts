@@ -3,6 +3,10 @@ import { UserService } from './user.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
+import { plainToClass } from 'class-transformer';
+import { validate } from 'class-validator';
+import { UpdateProfileDTO } from 'src/dto';
+
 jest.mock('src/utils', () => ({
   __esModule: true,
   exclude: jest.fn(),
@@ -193,5 +197,23 @@ describe('UserService', () => {
         },
       });
     });
+  });
+
+  it('should transform and validate correctly', async () => {
+    const plainData = {
+      fullName: 'John Doe',
+      phoneNumber: '1234567890',
+      gender: 'MALE',
+      companyName: 'Tech Inc.',
+      birthDate: '1990-01-01', // This should be transformed into a Date object
+    };
+
+    const dtoInstance = plainToClass(UpdateProfileDTO, plainData);
+
+    const errors = await validate(dtoInstance);
+
+    expect(errors).toHaveLength(0);
+
+    expect(dtoInstance.birthDate).toBeInstanceOf(Date);
   });
 });

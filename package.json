@@ -18,7 +18,7 @@
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage --collectCoverageFrom=!main.ts",
+    "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "check-types": "tsc --pretty --noEmit",
@@ -37,6 +37,10 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/swagger": "^7.3.0",
+    "@opentelemetry/api": "^1.6.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.39.4",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.45.0",
+    "@opentelemetry/sdk-node": "^0.45.0",
     "@prisma/client": "^5.9.1",
     "axios": "^1.6.7",
     "bcrypt": "^5.1.1",
@@ -94,6 +98,10 @@
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
+    ],
+    "coveragePathIgnorePatterns": [
+      "/src/main.ts",
+      "/src/tracer.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
