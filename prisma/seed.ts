@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  await prisma.user.upsert({
+  const admin = await prisma.user.upsert({
     where: {
       email: 'admin@questify.com',
     },
@@ -43,12 +43,62 @@ async function main() {
     },
   });
 
+  const creator = await prisma.user.upsert({
+    where: {
+      email: 'creator@questify.com',
+    },
+    update: {
+      roles: ['CREATOR'],
+      firstName: 'Creator',
+      lastName: 'Questify Updated',
+      isVerified: true,
+    },
+    create: {
+      email: 'creator@questify.com',
+      firstName: 'Creator',
+      lastName: 'Questify',
+      password: '$2a$10$Fc34lQ4jUY3e7/Z7ZJTf5eeOqISojt9zZHcJxprfwur6BYYQXeex6', // creator
+      roles: ['CREATOR'],
+      isVerified: true,
+    },
+  });
+
+  await prisma.respondent.upsert({
+    where: {
+      userId: admin.id,
+    },
+    create: {
+      userId: admin.id,
+    },
+    update: {},
+  });
+
   await prisma.respondent.upsert({
     where: {
       userId: respondent.id,
     },
     create: {
       userId: respondent.id,
+    },
+    update: {},
+  });
+
+  await prisma.creator.upsert({
+    where: {
+      userId: admin.id,
+    },
+    create: {
+      userId: admin.id,
+    },
+    update: {},
+  });
+
+  await prisma.creator.upsert({
+    where: {
+      userId: creator.id,
+    },
+    create: {
+      userId: creator.id,
     },
     update: {},
   });
