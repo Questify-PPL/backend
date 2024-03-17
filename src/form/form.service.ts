@@ -172,6 +172,14 @@ export class FormService {
     };
   }
 
+  async deleteSection(formId: string, sectionId: number, userId: string) {
+    return {
+      formId,
+      sectionId,
+      userId,
+    };
+  }
+
   async deleteQuestion(formId: string, questionId: number, userId: string) {
     await this.validateUserOnForm(formId, userId);
 
