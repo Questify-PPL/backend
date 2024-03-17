@@ -70,21 +70,7 @@ export class FormService {
       throw new BadRequestException('Type must be creator or respondent');
     }
 
-    const form = await this.prismaService.form.findUnique({
-      where: {
-        id: formId,
-      },
-      include: {
-        Question: {
-          include: {
-            Radio: true,
-            Checkbox: true,
-            Answer: true,
-          },
-        },
-        Section: true,
-      },
-    });
+    const form = await this.returnLatestForm(formId);
 
     if (!form) {
       throw new BadRequestException('Form not found');
@@ -146,12 +132,22 @@ export class FormService {
       data: {
         ...rest,
       },
+      include: {
+        Question: {
+          include: {
+            Radio: true,
+            Checkbox: true,
+            Answer: true,
+          },
+        },
+        Section: true,
+      },
     });
 
     return {
       statusCode: 200,
       message: 'Successfully update form',
-      data: updatedForm,
+      data: this.processFormInGeneral(updatedForm),
     };
   }
 
@@ -173,10 +169,25 @@ export class FormService {
   }
 
   async deleteSection(formId: string, sectionId: number, userId: string) {
+    await this.validateUserOnForm(formId, userId);
+
+    await this.validateSectionExist(formId, sectionId);
+
+    await this.prismaService.section.delete({
+      where: {
+        formId_sectionId: {
+          formId,
+          sectionId,
+        },
+      },
+    });
+
+    const returnLatestForm = await this.returnLatestForm(formId);
+
     return {
-      formId,
-      sectionId,
-      userId,
+      statusCode: 200,
+      message: 'Successfully delete section',
+      data: this.processFormInGeneral(returnLatestForm),
     };
   }
 
@@ -194,10 +205,12 @@ export class FormService {
       },
     });
 
+    const returnLatestForm = await this.returnLatestForm(formId);
+
     return {
       statusCode: 200,
       message: 'Successfully delete question',
-      data: {},
+      data: this.processFormInGeneral(returnLatestForm),
     };
   }
 
@@ -285,18 +298,19 @@ export class FormService {
     formQuestions: FormQuestion[],
     formId: string,
   ) {
-    formQuestions.map(async (formQuestion) => {
+    for (const formQuestion of formQuestions) {
       try {
         if (formQuestion.type === 'SECTION') {
           const section = await this.processSection(formId, formQuestion);
 
-          formQuestion.questions.map(async (question) => {
+          for (const question of formQuestion.questions) {
             try {
               await this.processQuestion(formId, section.sectionId, question);
             } catch (error) {
               console.log(error.response);
             }
-          });
+            console.log('test 4');
+          }
         } else {
           await this.processQuestion(
             formId,
@@ -307,7 +321,27 @@ export class FormService {
       } catch (error) {
         console.log(error.response);
       }
+    }
+  }
+
+  private async returnLatestForm(formId: string) {
+    const returnLatestForm = await this.prismaService.form.findUnique({
+      where: {
+        id: formId,
+      },
+      include: {
+        Question: {
+          include: {
+            Radio: true,
+            Checkbox: true,
+            Answer: true,
+          },
+        },
+        Section: true,
+      },
     });
+
+    return returnLatestForm;
   }
 
   private async validateUserOnForm(
@@ -332,6 +366,21 @@ export class FormService {
 
     if (isUpdating && form.isPublished) {
       throw new BadRequestException('Form is already published');
+    }
+  }
+
+  private async validateSectionExist(formId: string, sectionId: number) {
+    const section = await this.prismaService.section.findUnique({
+      where: {
+        formId_sectionId: {
+          formId,
+          sectionId,
+        },
+      },
+    });
+
+    if (!section) {
+      throw new BadRequestException('Section not found');
     }
   }
 
@@ -670,7 +719,7 @@ export class FormService {
                   .map((answer) => answer.answer)[0] || null,
             }),
           },
-          ['Answer', 'Radio', 'Checkbox'],
+          ['Answer', 'Radio', 'Checkbox', 'formId'],
         );
 
         if (question.sectionId) {
@@ -683,7 +732,7 @@ export class FormService {
 
           if (sectionIndex === -1) {
             acc.push({
-              ...section,
+              ...(this.excludeKeys(section, ['formId']) as Section),
               questions: [questionWithChoice],
             });
           } else {
