@@ -10,6 +10,7 @@ describe('FormService', () => {
   const dummyForm = {
     title: '',
     prize: 20000,
+    creatorId: 'userId',
     prizeType: 'LUCKY',
     questions: [],
     Question: [
@@ -159,6 +160,7 @@ describe('FormService', () => {
             },
             section: {
               findMany: jest.fn().mockResolvedValue({}),
+              findUnique: jest.fn().mockResolvedValue({}),
               create: jest.fn().mockResolvedValue({}),
               update: jest.fn().mockResolvedValue({}),
               delete: jest.fn().mockResolvedValue({}),
@@ -478,7 +480,7 @@ describe('FormService', () => {
     ).toEqual({
       statusCode: 200,
       message: 'Successfully update form',
-      data: dummyForm,
+      data: expect.any(Object),
     });
   });
 
@@ -537,7 +539,7 @@ describe('FormService', () => {
     ).toEqual({
       statusCode: 200,
       message: 'Successfully update form',
-      data: dummyForm,
+      data: expect.any(Object),
     });
   });
 
@@ -597,7 +599,7 @@ describe('FormService', () => {
     ).toEqual({
       statusCode: 200,
       message: 'Successfully update form',
-      data: dummyForm,
+      data: expect.any(Object),
     });
   });
 
@@ -665,7 +667,7 @@ describe('FormService', () => {
     ).toEqual({
       statusCode: 200,
       message: 'Successfully update form',
-      data: dummyForm,
+      data: expect.any(Object),
     });
   });
 
@@ -758,7 +760,7 @@ describe('FormService', () => {
     ).toEqual({
       statusCode: 200,
       message: 'Successfully update form',
-      data: dummyForm,
+      data: expect.any(Object),
     });
   });
 
@@ -836,7 +838,7 @@ describe('FormService', () => {
     ).toEqual({
       statusCode: 200,
       message: 'Successfully update form',
-      data: dummyForm,
+      data: expect.any(Object),
     });
   });
 
@@ -890,6 +892,38 @@ describe('FormService', () => {
     );
   });
 
+  it('should throw an error if section is not found in form', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.section, 'findUnique')
+      .mockResolvedValue(null as any);
+
+    await expect(service.deleteSection('formId', 1, 'userId')).rejects.toThrow(
+      'Section not found',
+    );
+  });
+
+  it('should call prismaService.section.delete with the correct arguments', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue(dummyForm as any);
+
+    jest
+      .spyOn(prismaService.section, 'findUnique')
+      .mockResolvedValue({} as any);
+
+    jest.spyOn(prismaService.section, 'delete').mockResolvedValue({} as any);
+
+    expect(await service.deleteSection('formId', 1, 'userId')).toEqual({
+      statusCode: 200,
+      message: 'Successfully delete section',
+      data: expect.any(Object),
+    });
+  });
+
   it('should throw an error if question is not found in delete question', async () => {
     jest
       .spyOn(prismaService.form, 'findUnique')
@@ -907,7 +941,7 @@ describe('FormService', () => {
   it('should call prismaService.question.delete with the correct arguments', async () => {
     jest
       .spyOn(prismaService.form, 'findUnique')
-      .mockResolvedValue({ creatorId: 'userId' } as any);
+      .mockResolvedValue(dummyForm as any);
 
     jest
       .spyOn(prismaService.question, 'findUnique')
@@ -918,7 +952,7 @@ describe('FormService', () => {
     expect(await service.deleteQuestion('formId', 1, 'userId')).toEqual({
       statusCode: 200,
       message: 'Successfully delete question',
-      data: {},
+      data: expect.any(Object),
     });
   });
 

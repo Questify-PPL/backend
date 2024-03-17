@@ -20,6 +20,7 @@ describe('FormController', () => {
             createForm: jest.fn().mockResolvedValue({}),
             updateForm: jest.fn().mockResolvedValue({}),
             deleteForm: jest.fn().mockResolvedValue({}),
+            deleteSection: jest.fn().mockResolvedValue({}),
             deleteQuestion: jest.fn().mockResolvedValue({}),
             participateOnQuestionnaire: jest.fn().mockResolvedValue({}),
             updateParticipation: jest.fn().mockResolvedValue({}),
@@ -91,6 +92,16 @@ describe('FormController', () => {
     const userId = 'userId';
 
     expect(await controller.deleteForm(formId, userId)).toEqual({});
+  });
+
+  it('should call formService.deleteSection with the correct arguments', async () => {
+    const formId = 'formId';
+    const sectionId = 1;
+    const userId = 'userId';
+
+    expect(await controller.deleteSection(formId, sectionId, userId)).toEqual(
+      {},
+    );
   });
 
   it('should call formService.deleteQuestion with the correct arguments', async () => {

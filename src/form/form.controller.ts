@@ -78,6 +78,16 @@ export class FormController {
     return this.formService.deleteForm(formId, userId);
   }
 
+  @Delete('/:formId/section/:sectionId')
+  @Roles(Role.CREATOR)
+  deleteSection(
+    @Param('formId') formId: string,
+    @Param('sectionId') sectionId: number,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.deleteSection(formId, sectionId, userId);
+  }
+
   @Delete('/:formId/question/:questionId')
   @Roles(Role.CREATOR)
   deleteQuestion(
