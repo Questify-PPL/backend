@@ -78,8 +78,8 @@ export class FormService {
 
     const formattedForm =
       type === 'creator'
-        ? this.processFormInGeneral(form)
-        : this.processFormInGeneral(form, userId, false);
+        ? await this.processFormInGeneral(form)
+        : await this.processFormInGeneral(form, userId, false);
 
     return {
       statusCode: 200,
@@ -696,7 +696,7 @@ export class FormService {
     return Promise.all(forms);
   }
 
-  private processFormInGeneral(
+  private async processFormInGeneral(
     form: Form & {
       Question: (QuestionPrisma & {
         Radio: Radio;
@@ -767,10 +767,28 @@ export class FormService {
       [],
     );
 
+    let participation;
+
+    if (userId) {
+      participation = await this.prismaService.participation.findUnique({
+        where: {
+          respondentId_formId: {
+            formId: form.id,
+            respondentId: userId,
+          },
+        },
+      });
+    }
+
     return this.excludeKeys(
       {
         ...form,
         questions: groupQuestionBySectionIfExist,
+        ...(participation && {
+          canRespond:
+            !participation.isCompleted &&
+            (!form.endedAt || form.endedAt >= new Date()),
+        }),
       },
       ['Question', 'Section'],
     );
