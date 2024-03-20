@@ -274,11 +274,55 @@ describe('FormService', () => {
     });
   });
 
-  it('should call prismaService.form.findUnique as respondent with the correct arguments', async () => {
-    jest
-      .spyOn(prismaService.form, 'findUnique')
-      .mockResolvedValue(dummyForm as any);
+  it('should call prismaService.form.findUnique as respondent with the correct arguments if iscomplete true but endedat is greater than current time', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...dummyForm,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
+    } as any);
     const userId = 'userId';
+
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: userId,
+      isCompleted: true,
+    } as any);
+
+    expect(await service.getFormById('formId', 'respondent', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should call prismaService.form.findUnique as respondent with the correct arguments if iscomplete true but endedat is lesser than current time', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...dummyForm,
+      endedAt: new Date(new Date().getTime() - 1000 * 60 * 60 * 24 * 7),
+    } as any);
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: userId,
+      isCompleted: true,
+    } as any);
+
+    expect(await service.getFormById('formId', 'respondent', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should call prismaService.form.findUnique as respondent with the correct arguments if iscomplete false but endedat is greater than current time', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...dummyForm,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
+    } as any);
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: userId,
+      isCompleted: false,
+    } as any);
 
     expect(await service.getFormById('formId', 'respondent', userId)).toEqual({
       statusCode: 200,
