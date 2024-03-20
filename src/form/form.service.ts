@@ -309,7 +309,6 @@ export class FormService {
             } catch (error) {
               console.log(error.response);
             }
-            console.log('test 4');
           }
         } else {
           await this.processQuestion(
