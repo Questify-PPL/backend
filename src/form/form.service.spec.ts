@@ -107,6 +107,11 @@ describe('FormService', () => {
         ],
       },
     ],
+    Winner: [
+      {
+        respondentId: 'userId',
+      },
+    ],
   };
 
   const dummyForms = [
@@ -185,6 +190,7 @@ describe('FormService', () => {
             },
             answer: {
               upsert: jest.fn().mockResolvedValue({}),
+              count: jest.fn().mockResolvedValue(0),
             },
           },
         },
@@ -224,11 +230,13 @@ describe('FormService', () => {
       .spyOn(prismaService.form, 'findMany')
       .mockResolvedValue(dummyForms as any);
 
-    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue([
-      {
-        form: dummyForms,
-      } as any,
-    ]);
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue(
+      dummyForms.map((dummyForm) => ({
+        form: dummyForm,
+        isCompleted: true,
+        questionAnswered: 0,
+      })) as any,
+    );
 
     expect(await service.getFilledForm('userId')).toEqual(expect.any(Object));
   });

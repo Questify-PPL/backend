@@ -659,18 +659,38 @@ export class FormService {
         respondentId: userId,
       },
       select: {
-        form: true,
+        form: {
+          include: {
+            Question: true,
+            Winner: true,
+          },
+        },
+        questionsAnswered: true,
+        isCompleted: true,
       },
     });
 
-    const forms = participations.map(async ({ form }) => {
-      return this.excludeKeys(form, [
-        'creatorId',
-        'isDraft',
-        'isPublished',
-        'maxParticipant',
-        'updatedAt',
-      ]);
+    const forms = participations.map(async (participation) => {
+      const winningChance = this.decideWinningChance();
+
+      const winningStatus = participation.form.Winner.some(
+        (winner) => winner.respondentId === userId,
+      );
+
+      return this.excludeKeys(
+        {
+          ...(this.excludeKeys(participation.form, [
+            'Question',
+            'Winner',
+          ]) as Form),
+          questionFilled: participation.questionsAnswered,
+          isCompleted: participation.isCompleted,
+          questionAmount: participation.form.Question.length,
+          winningChance,
+          winningStatus,
+        },
+        ['isDraft', 'isPublished', 'maxParticipant', 'updatedAt'],
+      );
     });
 
     return Promise.all(forms);
@@ -792,18 +812,24 @@ export class FormService {
     userId: string,
     questionsAnswer: QuestionAnswer[],
   ) {
-    questionsAnswer.map(async (questionsAnswer) => {
-      try {
-        await this.processAnswer(
-          formId,
-          userId,
-          questionsAnswer.questionId,
-          questionsAnswer.answer,
-        );
-      } catch (error) {
-        console.log(error.response);
+    try {
+      for (const questionAnswer of questionsAnswer) {
+        try {
+          await this.processAnswer(
+            formId,
+            userId,
+            questionAnswer.questionId,
+            questionAnswer.answer,
+          );
+        } catch (error) {
+          console.log(error.response);
+        }
       }
-    });
+
+      await this.updateQuestionsFilledAmount(formId, userId);
+    } catch (error) {
+      console.log(error.response);
+    }
   }
 
   private async processAnswer(
@@ -836,5 +862,30 @@ export class FormService {
         answer: answer,
       },
     });
+  }
+
+  private async updateQuestionsFilledAmount(formId: string, userId: string) {
+    const filledQuestionsAmount = await this.prismaService.answer.count({
+      where: {
+        respondentId: userId,
+        formId: formId,
+      },
+    });
+
+    await this.prismaService.participation.update({
+      where: {
+        respondentId_formId: {
+          formId,
+          respondentId: userId,
+        },
+      },
+      data: {
+        questionsAnswered: filledQuestionsAmount,
+      },
+    });
+  }
+
+  private decideWinningChance() {
+    return 0;
   }
 }
