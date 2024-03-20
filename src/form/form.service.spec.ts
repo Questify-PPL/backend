@@ -107,6 +107,11 @@ describe('FormService', () => {
         ],
       },
     ],
+    Winner: [
+      {
+        respondentId: 'userId',
+      },
+    ],
   };
 
   const dummyForms = [
