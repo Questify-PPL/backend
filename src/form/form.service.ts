@@ -683,7 +683,9 @@ export class FormService {
             'Winner',
           ]) as Form),
           questionFilled: participation.questionsAnswered,
-          isCompleted: participation.isCompleted,
+          isCompleted:
+            participation.isCompleted ||
+            participation.form.endedAt < new Date(),
           questionAmount: participation.form.Question.length,
           winningChance,
           winningStatus,

@@ -241,6 +241,25 @@ describe('FormService', () => {
     expect(await service.getFilledForm('userId')).toEqual(expect.any(Object));
   });
 
+  it('should call prismaService.form.findMany with the correct arguments and form has yet to finish', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue(
+      dummyForms.map((dummyForm) => ({
+        form: {
+          ...dummyForm,
+          endedAt: new Date(new Date().getTime() - 1000 * 60 * 60 * 24 * 7),
+        },
+        isCompleted: false,
+        questionAnswered: 0,
+      })) as any,
+    );
+
+    expect(await service.getFilledForm('userId')).toEqual(expect.any(Object));
+  });
+
   it('should throw error if form is not found in getFormById', async () => {
     jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null as any);
     const userId = 'userId';
