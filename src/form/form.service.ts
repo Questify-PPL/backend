@@ -685,7 +685,7 @@ export class FormService {
           questionFilled: participation.questionsAnswered,
           isCompleted:
             participation.isCompleted ||
-            (participation.form.endedAt &&
+            (participation.form.endedAt !== null &&
               participation.form.endedAt < new Date()),
           questionAmount: participation.form.Question.length,
           winningChance,
