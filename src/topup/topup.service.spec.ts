@@ -488,11 +488,6 @@ describe('TopupService', () => {
       jest.spyOn(prismaService.invoiceTopup, 'findMany').mockResolvedValue(
         mockInvoices.map((invoice) => ({
           ...invoice,
-          amount: 0,
-          buktiPembayaranUrl: '',
-          createdAt: new Date(),
-          validatedAt: new Date(),
-          onValidationCount: undefined,
         })),
       );
       jest
