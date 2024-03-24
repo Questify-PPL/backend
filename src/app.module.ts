@@ -9,6 +9,7 @@ import { UserModule } from './user/user.module';
 import { FormModule } from './form/form.module';
 import { QuestionnaireCreationModule } from './questionnaire-creation/questionnaire-creation.module';
 import { ShopModule } from './shop/shop.module';
+import { TopupModule } from './topup/topup.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ShopModule } from './shop/shop.module';
     FormModule,
     QuestionnaireCreationModule,
     ShopModule,
+    TopupModule,
   ],
   controllers: [AppController],
   providers: [AppService],

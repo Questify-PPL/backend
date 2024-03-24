@@ -50,8 +50,9 @@ model Creator {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
-  emailNotificationActive Boolean @default(true)
+  emailNotificationActive Boolean        @default(true)
   Form                    Form[]
+  InvoiceTopup            InvoiceTopup[]
 }
 
 model Respondent {
@@ -251,14 +252,6 @@ model Answer {
   questionId   Int
   Question     Question @relation(fields: [formId, questionId], references: [formId, questionId], onDelete: Cascade, onUpdate: Cascade)
 
-  // Store the answer in JSON format, the key is the nswer, 
-  // value is an string or array of string, depends on the question type
-  // and value of the answer
-  // format like: 
-  //  {"answer": "test123"}
-  // or
-  // {"answer": ["test123", "test456"]}
-  // 
   answer    Json
   createdAt DateTime @default(now())
 
@@ -273,4 +266,17 @@ model VerificationToken {
   isUsed    Boolean  @default(false)
 
   @@map("verification_tokens")
+}
+
+model InvoiceTopup {
+  id String @id @default(uuid())
+
+  creatorId String
+  creator   Creator @relation(fields: [creatorId], references: [userId])
+
+  amount             Int
+  status             String // Could be 'Pending', 'Validated', 'Rejected'
+  buktiPembayaranUrl String?
+  createdAt          DateTime  @default(now())
+  validatedAt        DateTime?
 }
