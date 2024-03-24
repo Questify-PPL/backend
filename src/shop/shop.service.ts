@@ -1,19 +1,35 @@
 import { Injectable } from '@nestjs/common';
+import { BuyItemDTO } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class ShopService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async getShopItems() {
-    return 'Shop items';
+  async getShopItems(userId: string) {
+    console.log(userId);
+    return {
+      statusCode: 200,
+      message: 'Successfully retrieved shop items',
+      data: [],
+    };
   }
 
-  async getInvoices() {
-    return 'Invoices';
+  async getInvoices(userId: string) {
+    console.log(userId);
+    return {
+      statusCode: 200,
+      message: 'Successfully retrieved invoices',
+      data: [],
+    };
   }
 
-  async buyItem() {
-    return 'Item bought';
+  async buyItem(userId: string, buyItemDTO: BuyItemDTO) {
+    console.log(userId, buyItemDTO);
+    return {
+      statusCode: 200,
+      message: 'Successfully bought item',
+      data: {},
+    };
   }
 }

@@ -8,13 +8,13 @@ export class BuyItemDTO {
   })
   @IsNumber()
   @IsNotEmpty()
-  readonly itemID: number;
+  readonly itemId: number;
 
   @ApiProperty({
-    title: 'Voucher',
+    title: 'Voucher ID',
     type: String,
   })
   @IsString()
   @IsOptional()
-  readonly voucher?: string;
+  readonly voucherId?: string;
 }
