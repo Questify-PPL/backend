@@ -51,6 +51,7 @@ model Creator {
 
   emailNotificationActive Boolean @default(true)
   Form                    Form[]
+  InvoiceTopup            InvoiceTopup[]
 }
 
 model Respondent {
@@ -241,4 +242,16 @@ model VerificationToken {
   isUsed    Boolean  @default(false)
 
   @@map("verification_tokens")
+}
+model InvoiceTopup {
+  id               String   @id @default(uuid())
+
+  creatorId String
+  creator   Creator @relation(fields: [creatorId], references: [userId])
+
+  amount           Int      
+  status           String   // Could be 'Pending', 'Validated', 'Rejected'
+  buktiPembayaranUrl String? 
+  createdAt        DateTime @default(now())
+  validatedAt      DateTime? 
 }

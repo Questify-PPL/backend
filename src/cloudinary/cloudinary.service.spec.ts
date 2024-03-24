@@ -66,4 +66,42 @@ describe('CloudinaryService', () => {
       'Upload failed',
     );
   });
+
+  it('should upload a bukti_bayar', async () => {
+    (cloudinary.v2.uploader.upload_stream as jest.Mock).mockImplementationOnce(
+      (options, callback) => {
+        const mockStream = new Readable();
+        mockStream.pipe = jest.fn();
+        callback(null, { success: true });
+        return mockStream;
+      },
+    );
+
+    const mockFile = {
+      originalname: 'test.jpg',
+      buffer: Buffer.from('test'),
+    } as Express.Multer.File;
+
+    const result = await service.uploadBuktiPembayaran(mockFile);
+
+    expect(result).toEqual({ success: true });
+    expect(cloudinary.v2.uploader.upload_stream).toHaveBeenCalled();
+  });
+
+  it('should throw an error if the upload fails', async () => {
+    (cloudinary.v2.uploader.upload_stream as jest.Mock).mockImplementationOnce(
+      (options, callback) => {
+        callback(new Error('Upload failed'), null);
+      },
+    );
+
+    const mockFile = {
+      originalname: 'test.jpg',
+      buffer: Buffer.from('test'),
+    } as Express.Multer.File;
+
+    await expect(service.uploadBuktiPembayaran(mockFile)).rejects.toThrow(
+      'Upload failed',
+    );
+  });
 });
