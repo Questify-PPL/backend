@@ -38,6 +38,7 @@ model User {
   Payment             Payment[]
   ReportTo            Report[]    @relation("to")
   ReportFrom          Report[]    @relation("from")
+  Voucher             Voucher[]
 }
 
 model Admin {
@@ -68,14 +69,45 @@ model Payment {
   item   Item   @relation(fields: [itemId], references: [id])
   userId String
   user   User   @relation(fields: [userId], references: [id])
+
+  totalPayment Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Voucher   Voucher? @relation(fields: [voucherId], references: [id])
+  voucherId String?
+}
+
+enum ItemCategory {
+  BASIC_PLAN
+}
+
+model Voucher {
+  id         String    @id @default(uuid())
+  discount   Int
+  expiredAt  DateTime
+  isUsed     Boolean   @default(false)
+  usedAt     DateTime?
+  usedBy     User?     @relation(fields: [userId], references: [id])
+  usedItemId Int?
+  usedItem   Item?     @relation(fields: [itemId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userId    String?
+  itemId    Int?
+  Payment   Payment[]
 }
 
 model Item {
-  id          Int       @id @default(autoincrement())
-  title       String
-  price       Int
-  description String
-  Payment     Payment[]
+  id                      Int          @id @default(autoincrement())
+  title                   String
+  price                   Int
+  category                ItemCategory @default(BASIC_PLAN)
+  advertisedOriginalPrice Int?
+  description             String
+  Payment                 Payment[]
+  Voucher                 Voucher[]
 }
 
 model Report {
