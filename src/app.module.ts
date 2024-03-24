@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './user/user.module';
 import { FormModule } from './form/form.module';
 import { QuestionnaireCreationModule } from './questionnaire-creation/questionnaire-creation.module';
+import { TopupModule } from './topup/topup.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { QuestionnaireCreationModule } from './questionnaire-creation/questionna
     EmailModule,
     FormModule,
     QuestionnaireCreationModule,
+    TopupModule,
   ],
   controllers: [AppController],
   providers: [AppService],
