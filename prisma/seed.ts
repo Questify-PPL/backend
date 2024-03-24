@@ -52,6 +52,7 @@ async function main() {
       firstName: 'Creator',
       lastName: 'Questify Updated',
       isVerified: true,
+      credit: 10000000,
     },
     create: {
       email: 'creator@questify.com',
@@ -60,6 +61,7 @@ async function main() {
       password: '$2a$10$Fc34lQ4jUY3e7/Z7ZJTf5eeOqISojt9zZHcJxprfwur6BYYQXeex6', // creator
       roles: ['CREATOR'],
       isVerified: true,
+      credit: 10000000,
     },
   });
 
@@ -101,6 +103,49 @@ async function main() {
       userId: creator.id,
     },
     update: {},
+  });
+
+  const itemsCount = await prisma.item.count();
+
+  if (itemsCount == 0) {
+    await prisma.item.createMany({
+      data: [
+        {
+          title: 'Item 1',
+          price: 10000,
+          description: 'Nothing',
+          advertisedOriginalPrice: 10000,
+        },
+        {
+          title: 'Item 2',
+          price: 20000,
+          description: 'Nothing',
+          advertisedOriginalPrice: 20000,
+        },
+        {
+          title: 'Item 3',
+          price: 30000,
+          description: 'Nothing',
+          advertisedOriginalPrice: 30000,
+        },
+      ],
+    });
+  }
+
+  await prisma.voucher.upsert({
+    where: {
+      id: '1',
+    },
+    create: {
+      id: '1',
+      discount: 1000,
+      expiredAt: new Date('2024-12-31'),
+      userId: creator.id,
+    },
+    update: {
+      isUsed: false,
+      userId: creator.id,
+    },
   });
 }
 

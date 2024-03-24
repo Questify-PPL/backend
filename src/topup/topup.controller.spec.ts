@@ -1,10 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { TopupController } from './topup.controller';
 import { TopupService } from './topup.service';
-import { CreateTopupDto } from 'src/dto/topup/createTopup.dto';
-import { ValidateTopupDto } from 'src/dto/topup/validateTopup.dto';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { BadRequestException } from '@nestjs/common';
+import { CreateTopupDto, ValidateTopupDto } from 'src/dto';
 
 describe('TopupController', () => {
   let controller: TopupController;

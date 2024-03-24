@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './user/user.module';
 import { FormModule } from './form/form.module';
 import { QuestionnaireCreationModule } from './questionnaire-creation/questionnaire-creation.module';
+import { ShopModule } from './shop/shop.module';
 import { TopupModule } from './topup/topup.module';
 
 @Module({
@@ -21,6 +22,7 @@ import { TopupModule } from './topup/topup.module';
     EmailModule,
     FormModule,
     QuestionnaireCreationModule,
+    ShopModule,
     TopupModule,
   ],
   controllers: [AppController],

@@ -38,6 +38,7 @@ model User {
   Payment             Payment[]
   ReportTo            Report[]    @relation("to")
   ReportFrom          Report[]    @relation("from")
+  Voucher             Voucher[]
 }
 
 model Admin {
@@ -49,7 +50,7 @@ model Creator {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
-  emailNotificationActive Boolean @default(true)
+  emailNotificationActive Boolean        @default(true)
   Form                    Form[]
   InvoiceTopup            InvoiceTopup[]
 }
@@ -69,14 +70,45 @@ model Payment {
   item   Item   @relation(fields: [itemId], references: [id])
   userId String
   user   User   @relation(fields: [userId], references: [id])
+
+  totalPayment Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Voucher   Voucher? @relation(fields: [voucherId], references: [id])
+  voucherId String?
+}
+
+enum ItemCategory {
+  BASIC_PLAN
+}
+
+model Voucher {
+  id         String    @id @default(uuid())
+  discount   Int
+  expiredAt  DateTime
+  isUsed     Boolean   @default(false)
+  usedAt     DateTime?
+  usedBy     User?     @relation(fields: [userId], references: [id])
+  usedItemId Int?
+  usedItem   Item?     @relation(fields: [itemId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userId    String?
+  itemId    Int?
+  Payment   Payment[]
 }
 
 model Item {
-  id          Int       @id @default(autoincrement())
-  title       String
-  price       Int
-  description String
-  Payment     Payment[]
+  id                      Int          @id @default(autoincrement())
+  title                   String
+  price                   Int
+  category                ItemCategory @default(BASIC_PLAN)
+  advertisedOriginalPrice Int?
+  description             String
+  Payment                 Payment[]
+  Voucher                 Voucher[]
 }
 
 model Report {
@@ -220,14 +252,6 @@ model Answer {
   questionId   Int
   Question     Question @relation(fields: [formId, questionId], references: [formId, questionId], onDelete: Cascade, onUpdate: Cascade)
 
-  // Store the answer in JSON format, the key is the nswer, 
-  // value is an string or array of string, depends on the question type
-  // and value of the answer
-  // format like: 
-  //  {"answer": "test123"}
-  // or
-  // {"answer": ["test123", "test456"]}
-  // 
   answer    Json
   createdAt DateTime @default(now())
 
@@ -243,15 +267,16 @@ model VerificationToken {
 
   @@map("verification_tokens")
 }
+
 model InvoiceTopup {
-  id               String   @id @default(uuid())
+  id String @id @default(uuid())
 
   creatorId String
   creator   Creator @relation(fields: [creatorId], references: [userId])
 
-  amount           Int      
-  status           String   // Could be 'Pending', 'Validated', 'Rejected'
-  buktiPembayaranUrl String? 
-  createdAt        DateTime @default(now())
-  validatedAt      DateTime? 
+  amount             Int
+  status             String // Could be 'Pending', 'Validated', 'Rejected'
+  buktiPembayaranUrl String?
+  createdAt          DateTime  @default(now())
+  validatedAt        DateTime?
 }

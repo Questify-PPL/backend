@@ -10,13 +10,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TopupService } from './topup.service';
-import { CreateTopupDto } from 'src/dto/topup/createTopup.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard } from 'src/guard';
 import { CurrentUser, Roles } from 'src/decorator';
 import { Role } from '@prisma/client';
-import { ValidateTopupDto } from 'src/dto/topup/validateTopup.dto';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { CreateTopupDto, ValidateTopupDto } from 'src/dto';
 
 @ApiTags('topup')
 @Controller('topup')
@@ -68,8 +67,6 @@ export class TopupController {
   }
 
   private async uploadFile(file: Express.Multer.File): Promise<string> {
-    console.log(file);
-
     const uploadResponse =
       await this.cloudinaryService.uploadBuktiPembayaran(file);
     const buktiPembayaranUrl = uploadResponse.url;
