@@ -478,7 +478,7 @@ export class FormService {
       newOrUpdatedQuestion = await this.prismaService.question.create({
         data: {
           question: question.question,
-          questionTypeName: question.questionType,
+          questionTypeName: question.questionTypeName,
           ...(question.description && {
             description: question.description,
           }),
