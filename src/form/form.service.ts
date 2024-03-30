@@ -112,7 +112,7 @@ export class FormService {
     userId: string,
     updateFormDTO: UpdateFormDTO,
   ) {
-    const { formQuestions, ...rest } = updateFormDTO;
+    const { formQuestions, isPublished, isDraft, ...rest } = updateFormDTO;
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
@@ -131,6 +131,14 @@ export class FormService {
       },
       data: {
         ...rest,
+        ...(isPublished && {
+          isPublished: isPublished,
+          isDraft: !isPublished,
+        }),
+        ...(isDraft && {
+          isDraft: isDraft,
+          isPublished: !isDraft,
+        }),
       },
       include: {
         Question: {
@@ -147,7 +155,7 @@ export class FormService {
     return {
       statusCode: 200,
       message: 'Successfully update form',
-      data: this.processFormInGeneral(updatedForm),
+      data: await this.processFormInGeneral(updatedForm),
     };
   }
 
@@ -658,6 +666,7 @@ export class FormService {
           ongoingParticipation,
           completedParticipation,
           questionAmount: form.Question.length,
+          isCompleted: form.endedAt !== null && form.endedAt < new Date(),
         },
         ['Question'],
       );

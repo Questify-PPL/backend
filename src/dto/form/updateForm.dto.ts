@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PrizeType, QuestionType } from '@prisma/client';
 import {
+  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -122,6 +123,22 @@ export class UpdateFormDTO {
   @IsOptional()
   @IsString()
   readonly title: string;
+
+  @ApiProperty({
+    title: 'Is Published?',
+    type: Boolean,
+  })
+  @IsOptional()
+  @IsBoolean()
+  readonly isPublished?: boolean;
+
+  @ApiProperty({
+    title: 'Is Published?',
+    type: Boolean,
+  })
+  @IsOptional()
+  @IsBoolean()
+  readonly isDraft?: boolean;
 
   @ApiProperty({
     title: 'Prize',
