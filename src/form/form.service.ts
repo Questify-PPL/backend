@@ -290,6 +290,11 @@ export class FormService {
   }
 
   /*  ======================================================
+        Questionnaire Summary and Statistics
+      ======================================================
+  */
+
+  /*  ======================================================
         Utils
       ======================================================
   */
@@ -622,31 +627,37 @@ export class FormService {
       where: {
         creatorId: userId,
       },
+      include: {
+        Question: true,
+      },
     });
 
     const formsWithStats = forms.map(async (form) => {
-      const ongoingParticipation = await this.prismaService.participation.count(
+      const [ongoingParticipation, completedParticipation] =
+        await this.prismaService.$transaction([
+          this.prismaService.participation.count({
+            where: {
+              formId: form.id,
+              isCompleted: false,
+            },
+          }),
+          this.prismaService.participation.count({
+            where: {
+              formId: form.id,
+              isCompleted: true,
+            },
+          }),
+        ]);
+
+      return this.excludeKeys(
         {
-          where: {
-            formId: form.id,
-            isCompleted: false,
-          },
+          ...form,
+          ongoingParticipation,
+          completedParticipation,
+          questionAmount: form.Question.length,
         },
+        ['Question'],
       );
-
-      const completedParticipation =
-        await this.prismaService.participation.count({
-          where: {
-            formId: form.id,
-            isCompleted: true,
-          },
-        });
-
-      return {
-        ...form,
-        ongoingParticipation,
-        completedParticipation,
-      };
     });
 
     return Promise.all(formsWithStats);
@@ -791,6 +802,7 @@ export class FormService {
             !participation.isCompleted &&
             (!form.endedAt || form.endedAt >= new Date()),
         }),
+        questionAmount: form.Question.length,
       },
       ['Question', 'Section'],
     );
