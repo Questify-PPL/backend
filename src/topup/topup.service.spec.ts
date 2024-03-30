@@ -1,8 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TopupService } from './topup.service';
-import { Role } from '@prisma/client';
+import { InvoiceStatus, Role } from '@prisma/client';
 import { BadRequestException } from '@nestjs/common';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 
 describe('TopupService', () => {
   let service: TopupService;
@@ -28,6 +29,14 @@ describe('TopupService', () => {
             },
           },
         },
+        {
+          provide: CloudinaryService,
+          useValue: {
+            uploadBuktiPembayaran: jest
+              .fn()
+              .mockResolvedValue({ url: 'https://example.com/path/to/file' }),
+          },
+        },
       ],
     }).compile();
 
@@ -44,29 +53,41 @@ describe('TopupService', () => {
       const mockInvoices: {
         id: string;
         creatorId: string;
+        creatorName: string;
         amount: number;
-        status: string;
+        status: InvoiceStatus;
         buktiPembayaranUrl: string;
         createdAt: Date;
         validatedAt: Date;
+        payment: string;
+        exchange: string;
+        accountNumber: string;
       }[] = [
         {
           id: 'invoice1',
           creatorId: 'creator1',
+          creatorName: 'Creator 1',
           amount: 100,
-          status: 'Pending',
+          status: InvoiceStatus.PENDING,
           buktiPembayaranUrl: 'url1',
           createdAt: new Date(),
           validatedAt: new Date(),
+          payment: 'Payment 1',
+          exchange: 'Exchange 1',
+          accountNumber: 'Account Number 1',
         },
         {
           id: 'invoice2',
           creatorId: 'creator2',
+          creatorName: 'Creator 2',
           amount: 200,
-          status: 'Pending',
+          status: InvoiceStatus.PENDING,
           buktiPembayaranUrl: 'url2',
           createdAt: new Date(),
           validatedAt: new Date(),
+          payment: 'Payment 2',
+          exchange: 'Exchange 2',
+          accountNumber: 'Account Number 2',
         },
       ];
       jest
@@ -76,7 +97,12 @@ describe('TopupService', () => {
       const result = await service.getAllOnValidationInvoice();
       expect(result.data).toEqual(mockInvoices);
       expect(prismaService.invoiceTopup.findMany).toHaveBeenCalledWith({
-        where: { status: 'Pending' },
+        where: {
+          status: InvoiceStatus.PENDING,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
       });
     });
 
@@ -87,11 +113,77 @@ describe('TopupService', () => {
     });
   });
 
+  describe('getAllInvoices', () => {
+    it('should return all invoices', async () => {
+      const mockInvoices: {
+        id: string;
+        creatorId: string;
+        creatorName: string;
+        amount: number;
+        status: InvoiceStatus;
+        buktiPembayaranUrl: string;
+        createdAt: Date;
+        validatedAt: Date;
+        payment: string;
+        exchange: string;
+        accountNumber: string;
+      }[] = [
+        {
+          id: 'invoice1',
+          creatorId: 'creator1',
+          creatorName: 'Creator 1',
+          amount: 100,
+          status: InvoiceStatus.PENDING,
+          buktiPembayaranUrl: 'url1',
+          createdAt: new Date(),
+          validatedAt: new Date(),
+          payment: 'Payment 1',
+          exchange: 'Exchange 1',
+          accountNumber: 'Account Number 1',
+        },
+        {
+          id: 'invoice2',
+          creatorId: 'creator2',
+          creatorName: 'Creator 2',
+          amount: 200,
+          status: InvoiceStatus.PENDING,
+          buktiPembayaranUrl: 'url2',
+          createdAt: new Date(),
+          validatedAt: new Date(),
+          payment: 'Payment 2',
+          exchange: 'Exchange 2',
+          accountNumber: 'Account Number 2',
+        },
+      ];
+      jest
+        .spyOn(prismaService.invoiceTopup, 'findMany')
+        .mockResolvedValue(mockInvoices);
+
+      const result = await service.getAllInvoices();
+      expect(result.data).toEqual(mockInvoices);
+      expect(prismaService.invoiceTopup.findMany).toHaveBeenCalledWith({
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+    });
+
+    it('should return an empty array if no invoices', async () => {
+      jest.spyOn(prismaService.invoiceTopup, 'findMany').mockResolvedValue([]);
+      const result = await service.getAllInvoices();
+      expect(result.data).toEqual([]);
+    });
+  });
+
   describe('createTopup', () => {
     const userId = 'user1';
     const type = 'creator';
-    const createTopupDto = { amount: 100 };
-    const buktiPembayaranUrl = 'https://example.com/path/to/file';
+    const createTopupDto = {
+      amount: 100,
+      payment: 'Payment 1',
+      exchange: 'Exchange 1',
+    };
+    const file = {} as Express.Multer.File;
 
     it('should create a topup invoice successfully', async () => {
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
@@ -112,13 +204,17 @@ describe('TopupService', () => {
         hasCompletedProfile: true,
       });
       const invoice = {
-        id: 'invoiceId',
-        creatorId: userId,
-        amount: createTopupDto.amount,
-        buktiPembayaranUrl,
-        status: 'Pending',
+        id: 'invoice1',
+        creatorId: 'creator1',
+        creatorName: 'Creator 1',
+        amount: 100,
+        status: InvoiceStatus.PENDING,
+        buktiPembayaranUrl: 'url1',
         createdAt: new Date(),
         validatedAt: new Date(),
+        payment: 'Payment 1',
+        exchange: 'Exchange 1',
+        accountNumber: 'Account Number 1',
       };
 
       jest
@@ -129,7 +225,7 @@ describe('TopupService', () => {
         userId,
         type,
         createTopupDto,
-        buktiPembayaranUrl,
+        file,
       );
 
       expect(result.data).toHaveProperty('id');
@@ -140,13 +236,13 @@ describe('TopupService', () => {
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
 
       await expect(
-        service.createTopup(userId, type, createTopupDto, buktiPembayaranUrl),
+        service.createTopup(userId, type, createTopupDto, file),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw an error if user type is not creator', async () => {
       await expect(
-        service.createTopup('userId', 'wrongType', { amount: 100 }, 'url'),
+        service.createTopup('userId', 'wrongType', createTopupDto, file),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -154,17 +250,21 @@ describe('TopupService', () => {
   describe('validateTopup', () => {
     const invoiceId = 'invoice1';
     const type = 'admin';
-    const validateTopupDto = { isValidated: true };
-    const rejectTopupDto = { isValidated: false };
+    const validateTopupDto = { isApproved: true };
+    const rejectTopupDto = { isApproved: false };
 
     const invoice = {
       id: invoiceId,
-      status: 'Pending',
+      status: InvoiceStatus.PENDING,
       creatorId: 'user1',
       amount: 100,
       buktiPembayaranUrl: 'url',
       createdAt: new Date(),
       validatedAt: new Date(),
+      creatorName: 'John Doe',
+      payment: 'payment',
+      exchange: 'exchange',
+      accountNumber: 'accountNumber',
     };
 
     const user = {
@@ -188,7 +288,7 @@ describe('TopupService', () => {
     it('should throw an error if user type is not admin', async () => {
       await expect(
         service.validateTopup('invoiceId', 'creator', {
-          isValidated: true,
+          isApproved: true,
         }),
       ).rejects.toThrow(BadRequestException);
     });
@@ -197,17 +297,39 @@ describe('TopupService', () => {
       prismaService.invoiceTopup.findUnique = jest.fn().mockResolvedValue(null);
 
       expect(
-        service.validateTopup('invalidInvoice', 'admin', { isValidated: true }),
+        service.validateTopup('invalidInvoice', 'admin', { isApproved: true }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should validate an invoice successfully', async () => {
-      jest
-        .spyOn(prismaService.invoiceTopup, 'findUnique')
-        .mockResolvedValue(invoice);
+      jest.spyOn(prismaService.invoiceTopup, 'findUnique').mockResolvedValue({
+        ...invoice,
+        creatorName: 'John Doe',
+        payment: 'payment',
+        exchange: 'exchange',
+        accountNumber: 'accountNumber',
+      });
 
-      const updated = { ...invoice };
-      updated.status = 'Validated';
+      const updated: {
+        id: string;
+        creatorId: string;
+        creatorName: string;
+        amount: number;
+        status: InvoiceStatus;
+        buktiPembayaranUrl: string;
+        createdAt: Date;
+        validatedAt: Date;
+        payment: string;
+        exchange: string;
+        accountNumber: string;
+      } = {
+        ...invoice,
+        creatorName: 'John Doe',
+        payment: 'payment',
+        exchange: 'exchange',
+        accountNumber: 'accountNumber',
+      };
+      updated.status = InvoiceStatus.APPROVED;
       updated.validatedAt = new Date();
 
       jest
@@ -222,7 +344,7 @@ describe('TopupService', () => {
         validateTopupDto,
       );
 
-      expect(result.data.status).toEqual('Validated');
+      expect(result.data.status).toEqual(InvoiceStatus.APPROVED);
       expect(result.statusCode).toEqual(200);
       expect(prismaService.user.update).toHaveBeenCalled();
     });
@@ -232,8 +354,26 @@ describe('TopupService', () => {
         .spyOn(prismaService.invoiceTopup, 'findUnique')
         .mockResolvedValue(invoice);
 
-      const updated = { ...invoice };
-      updated.status = 'Validated';
+      const updated: {
+        id: string;
+        creatorId: string;
+        creatorName: string;
+        amount: number;
+        status: InvoiceStatus;
+        buktiPembayaranUrl: string;
+        createdAt: Date;
+        validatedAt: Date;
+        payment: string;
+        exchange: string;
+        accountNumber: string;
+      } = {
+        ...invoice,
+        creatorName: 'John Doe',
+        payment: 'payment',
+        exchange: 'exchange',
+        accountNumber: 'accountNumber',
+      };
+      updated.status = InvoiceStatus.APPROVED;
       updated.validatedAt = new Date();
 
       jest
@@ -252,8 +392,26 @@ describe('TopupService', () => {
         .spyOn(prismaService.invoiceTopup, 'findUnique')
         .mockResolvedValue(invoice);
 
-      const updated = { ...invoice };
-      updated.status = 'Rejected';
+      const updated: {
+        id: string;
+        creatorId: string;
+        creatorName: string;
+        amount: number;
+        status: InvoiceStatus;
+        buktiPembayaranUrl: string;
+        createdAt: Date;
+        validatedAt: Date;
+        payment: string;
+        exchange: string;
+        accountNumber: string;
+      } = {
+        ...invoice,
+        creatorName: 'John Doe',
+        payment: 'payment',
+        exchange: 'exchange',
+        accountNumber: 'accountNumber',
+      };
+      updated.status = InvoiceStatus.REJECTED;
       updated.validatedAt = new Date();
 
       jest
@@ -266,17 +424,17 @@ describe('TopupService', () => {
         rejectTopupDto,
       );
 
-      expect(result.data.status).toEqual('Rejected');
+      expect(result.data.status).toEqual(InvoiceStatus.REJECTED);
       expect(result.statusCode).toEqual(200);
       expect(user.credit).toBe(100);
     });
 
     it('should throw BadRequestException if invoice is not in Pending state', async () => {
       prismaService.invoiceTopup.findUnique = jest.fn().mockResolvedValue({
-        status: 'Validated',
+        status: InvoiceStatus.APPROVED,
       });
       await expect(
-        service.validateTopup('invoice2', 'admin', { isValidated: true }),
+        service.validateTopup('invoice2', 'admin', { isApproved: true }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -287,26 +445,34 @@ describe('TopupService', () => {
       const invoiceAmount = 50;
       const newCredit = originalCredit + invoiceAmount;
       const type = 'admin';
-      const validateTopupDto = { isValidated: true };
+      const validateTopupDto = { isApproved: true };
 
       jest.spyOn(prismaService.invoiceTopup, 'findUnique').mockResolvedValue({
         id: invoiceId,
         creatorId: userId,
+        creatorName: 'John Doe',
         amount: invoiceAmount,
-        status: 'Pending',
+        status: InvoiceStatus.PENDING,
         buktiPembayaranUrl: '',
         createdAt: new Date(),
         validatedAt: new Date(),
+        payment: '',
+        exchange: '',
+        accountNumber: '',
       });
 
       jest.spyOn(prismaService.invoiceTopup, 'update').mockResolvedValue({
         id: invoiceId,
         creatorId: userId,
+        creatorName: 'John Doe',
         amount: 0,
-        status: 'Validated',
+        status: InvoiceStatus.APPROVED,
         buktiPembayaranUrl: '',
         createdAt: new Date(),
         validatedAt: new Date(),
+        payment: '',
+        exchange: '',
+        accountNumber: '',
       });
 
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
@@ -348,11 +514,15 @@ describe('TopupService', () => {
       jest.spyOn(prismaService.invoiceTopup, 'update').mockResolvedValue({
         id: invoiceId,
         creatorId: userId,
+        creatorName: 'John Doe',
         amount: 0,
-        status: 'Validated',
+        status: InvoiceStatus.APPROVED,
         buktiPembayaranUrl: '',
         createdAt: new Date(),
         validatedAt: new Date(),
+        payment: '',
+        exchange: '',
+        accountNumber: '',
       });
 
       const result = await service.validateTopup(
@@ -366,7 +536,7 @@ describe('TopupService', () => {
         data: { credit: newCredit },
       });
 
-      expect(result.data.status).toBe('Validated');
+      expect(result.data.status).toBe(InvoiceStatus.APPROVED);
       expect(result.statusCode).toBe(200);
     });
 
@@ -377,26 +547,34 @@ describe('TopupService', () => {
       const invoiceAmount = 50;
       const newCredit = 0 + invoiceAmount;
       const type = 'admin';
-      const validateTopupDto = { isValidated: true };
+      const validateTopupDto = { isApproved: true };
 
       jest.spyOn(prismaService.invoiceTopup, 'findUnique').mockResolvedValue({
         id: invoiceId,
         creatorId: userId,
+        creatorName: 'John Doe',
         amount: invoiceAmount,
-        status: 'Pending',
+        status: InvoiceStatus.PENDING,
         buktiPembayaranUrl: '',
         createdAt: new Date(),
         validatedAt: new Date(),
+        payment: '',
+        exchange: '',
+        accountNumber: '',
       });
 
       jest.spyOn(prismaService.invoiceTopup, 'update').mockResolvedValue({
         id: invoiceId,
         creatorId: userId,
+        creatorName: 'John Doe',
         amount: 0,
-        status: 'Validated',
+        status: InvoiceStatus.APPROVED,
         buktiPembayaranUrl: '',
         createdAt: new Date(),
         validatedAt: new Date(),
+        payment: '',
+        exchange: '',
+        accountNumber: '',
       });
 
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
@@ -438,11 +616,15 @@ describe('TopupService', () => {
       jest.spyOn(prismaService.invoiceTopup, 'update').mockResolvedValue({
         id: invoiceId,
         creatorId: userId,
+        creatorName: 'John Doe',
         amount: 0,
-        status: 'Validated',
+        status: InvoiceStatus.APPROVED,
         buktiPembayaranUrl: '',
         createdAt: new Date(),
         validatedAt: new Date(),
+        payment: '',
+        exchange: '',
+        accountNumber: '',
       });
 
       const result = await service.validateTopup(
@@ -456,7 +638,7 @@ describe('TopupService', () => {
         data: { credit: newCredit },
       });
 
-      expect(result.data.status).toBe('Validated');
+      expect(result.data.status).toBe(InvoiceStatus.APPROVED);
       expect(result.statusCode).toBe(200);
     });
   });
@@ -465,26 +647,47 @@ describe('TopupService', () => {
     const userId = 'user1';
 
     it('should return invoices owned by the user', async () => {
-      const mockInvoices = [
+      const mockInvoices: {
+        id: string;
+        creatorId: string;
+        creatorName: string;
+        amount: number;
+        status: InvoiceStatus;
+        buktiPembayaranUrl: string;
+        createdAt: Date;
+        validatedAt: Date;
+        payment: string;
+        exchange: string;
+        accountNumber: string;
+      }[] = [
         {
           id: 'invoice1',
-          creatorId: userId,
-          status: 'Pending',
-          amount: 0,
-          buktiPembayaranUrl: '',
+          creatorId: 'creator1',
+          creatorName: 'Creator 1',
+          amount: 100,
+          status: InvoiceStatus.PENDING,
+          buktiPembayaranUrl: 'url1',
           createdAt: new Date(),
           validatedAt: new Date(),
+          payment: 'Payment 1',
+          exchange: 'Exchange 1',
+          accountNumber: 'Account Number 1',
         },
         {
           id: 'invoice2',
-          creatorId: userId,
-          status: 'Pending',
-          amount: 0,
-          buktiPembayaranUrl: '',
+          creatorId: 'creator2',
+          creatorName: 'Creator 2',
+          amount: 200,
+          status: InvoiceStatus.PENDING,
+          buktiPembayaranUrl: 'url2',
           createdAt: new Date(),
           validatedAt: new Date(),
+          payment: 'Payment 2',
+          exchange: 'Exchange 2',
+          accountNumber: 'Account Number 2',
         },
       ];
+
       jest.spyOn(prismaService.invoiceTopup, 'findMany').mockResolvedValue(
         mockInvoices.map((invoice) => ({
           ...invoice,

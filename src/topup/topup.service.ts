@@ -1,15 +1,24 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { CreateTopupDto, ValidateTopupDto } from 'src/dto';
+import { InvoiceStatus } from '@prisma/client';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { CreateTopupDto } from 'src/dto/topup/createTopup.dto';
+import { ValidateTopupDto } from 'src/dto/topup/validateTopup.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class TopupService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
   async getAllOnValidationInvoice() {
     const invoices = await this.prismaService.invoiceTopup.findMany({
       where: {
-        status: 'Pending',
+        status: InvoiceStatus.PENDING,
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
     });
 
@@ -20,13 +29,27 @@ export class TopupService {
     };
   }
 
+  async getAllInvoices() {
+    const invoices = await this.prismaService.invoiceTopup.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return {
+      statusCode: 200,
+      message: 'Successfully get all invoices',
+      data: invoices,
+    };
+  }
+
   async createTopup(
     userId: string,
     type: string,
     createTopupDto: CreateTopupDto,
-    buktiPembayaranUrl: string,
+    file: Express.Multer.File,
   ) {
-    const { amount } = createTopupDto;
+    const { amount, payment, exchange } = createTopupDto;
     if (type !== 'creator') {
       throw new BadRequestException('Type must be creator');
     }
@@ -41,12 +64,17 @@ export class TopupService {
       throw new BadRequestException('User not found');
     }
 
+    const buktiPembayaranUrl = await this.uploadFile(file);
+
     const invoice = await this.prismaService.invoiceTopup.create({
       data: {
         creatorId: userId,
+        creatorName: user.firstName + ' ' + user.lastName,
+        payment,
+        exchange,
         amount,
         buktiPembayaranUrl,
-        status: 'Pending',
+        status: InvoiceStatus.PENDING,
       },
     });
 
@@ -66,7 +94,7 @@ export class TopupService {
       throw new BadRequestException('Type must be an admin');
     }
 
-    const { isValidated } = validateTopupDto;
+    const { isApproved } = validateTopupDto;
 
     const invoice = await this.prismaService.invoiceTopup.findUnique({
       where: {
@@ -78,13 +106,13 @@ export class TopupService {
       throw new BadRequestException('Invoice not found');
     }
 
-    if (invoice.status !== 'Pending') {
+    if (invoice.status !== InvoiceStatus.PENDING) {
       throw new BadRequestException('Invoice already validated');
     }
 
-    const status = isValidated ? 'Validated' : 'Rejected';
+    const status = isApproved ? InvoiceStatus.APPROVED : InvoiceStatus.REJECTED;
 
-    if (isValidated) {
+    if (isApproved) {
       await this.addCreditsToCreator(invoice);
     }
 
@@ -144,6 +172,9 @@ export class TopupService {
       where: {
         creatorId: userId,
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
     const invoicesWithStats = invoices.map(async (invoice) => {
@@ -153,5 +184,15 @@ export class TopupService {
     });
 
     return Promise.all(invoicesWithStats);
+  }
+
+  private async uploadFile(file: Express.Multer.File): Promise<string> {
+    console.log(file);
+
+    const uploadResponse =
+      await this.cloudinaryService.uploadBuktiPembayaran(file);
+    const buktiPembayaranUrl = uploadResponse.url;
+
+    return buktiPembayaranUrl;
   }
 }

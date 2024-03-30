@@ -1,9 +1,10 @@
 import { Test } from '@nestjs/testing';
 import { TopupController } from './topup.controller';
 import { TopupService } from './topup.service';
-import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { CreateTopupDto } from 'src/dto/topup/createTopup.dto';
+import { ValidateTopupDto } from 'src/dto/topup/validateTopup.dto';
 import { BadRequestException } from '@nestjs/common';
-import { CreateTopupDto, ValidateTopupDto } from 'src/dto';
+import { InvoiceStatus } from '@prisma/client';
 
 describe('TopupController', () => {
   let controller: TopupController;
@@ -20,14 +21,7 @@ describe('TopupController', () => {
             getOwnedTopupInvoice: jest.fn(),
             createTopup: jest.fn(),
             validateTopup: jest.fn(),
-          },
-        },
-        {
-          provide: CloudinaryService,
-          useValue: {
-            uploadBuktiPembayaran: jest
-              .fn()
-              .mockResolvedValue({ url: 'https://example.com/path/to/file' }),
+            getAllInvoices: jest.fn(),
           },
         },
       ],
@@ -37,11 +31,37 @@ describe('TopupController', () => {
     topupService = module.get<TopupService>(TopupService);
   });
 
-  describe('getAllInvoices', () => {
+  describe('getAllOnValidation', () => {
     it('should return an array of empty invoices', async () => {
       const result = { statusCode: 200, message: 'Success', data: [] };
       jest
         .spyOn(topupService, 'getAllOnValidationInvoice')
+        .mockImplementation(async () => result);
+
+      expect(await controller.getAllOnValidation()).toBe(result);
+    });
+
+    it('should return all pending invoices for an admin', async () => {
+      const expectedResult = {
+        statusCode: 200,
+        message: 'Successfully get all on validation invoice',
+        data: ['invoice1', 'invoice2'],
+      };
+
+      (topupService.getAllOnValidationInvoice as jest.Mock).mockResolvedValue(
+        expectedResult,
+      );
+
+      const result = await controller.getAllOnValidation();
+      expect(result).toEqual(expectedResult);
+    });
+  });
+
+  describe('getAllInvoices', () => {
+    it('should return an array of empty invoices', async () => {
+      const result = { statusCode: 200, message: 'Success', data: [] };
+      jest
+        .spyOn(topupService, 'getAllInvoices')
         .mockImplementation(async () => result);
 
       expect(await controller.getAllInvoices()).toBe(result);
@@ -50,11 +70,11 @@ describe('TopupController', () => {
     it('should return all invoices for an admin', async () => {
       const expectedResult = {
         statusCode: 200,
-        message: 'Successfully get all on validation invoice',
+        message: 'Successfully get all invoice',
         data: ['invoice1', 'invoice2'],
       };
 
-      (topupService.getAllOnValidationInvoice as jest.Mock).mockResolvedValue(
+      (topupService.getAllInvoices as jest.Mock).mockResolvedValue(
         expectedResult,
       );
 
@@ -87,11 +107,15 @@ describe('TopupController', () => {
         data: {
           id: 'invoiceId',
           creatorId: 'creatorId',
+          creatorName: 'creatorName',
           amount: 100,
-          status: 'Pending',
+          status: InvoiceStatus.PENDING,
           buktiPembayaranUrl: 'https://example.com',
           createdAt: new Date(),
-          validatedAt: null,
+          validatedAt: new Date(),
+          payment: 'payment',
+          exchange: 'exchange',
+          accountNumber: 'accountNumber',
         },
       };
 
@@ -107,7 +131,11 @@ describe('TopupController', () => {
     it('should handle service exceptions', async () => {
       const userId = 'user1';
       const type = 'wrongType';
-      const createTopupDto = { amount: 100 };
+      const createTopupDto = {
+        amount: 100,
+        payment: 'payment',
+        exchange: 'exchange',
+      };
       const file = {} as Express.Multer.File;
 
       jest
@@ -131,11 +159,15 @@ describe('TopupController', () => {
         data: {
           id: 'invoiceId',
           creatorId: 'creatorId',
+          creatorName: 'creatorName',
           amount: 100,
-          status: 'Validated',
+          status: InvoiceStatus.APPROVED,
           buktiPembayaranUrl: 'https://example.com',
           createdAt: new Date(),
           validatedAt: new Date(),
+          payment: 'payment',
+          exchange: 'exchange',
+          accountNumber: 'accountNumber',
         },
       };
 
@@ -151,7 +183,7 @@ describe('TopupController', () => {
     it('should handle service exceptions', async () => {
       const invoiceId = 'invoice1';
       const type = 'wrongType';
-      const validateTopupDto = { isValidated: true };
+      const validateTopupDto = { isApproved: true };
 
       jest
         .spyOn(topupService, 'validateTopup')
