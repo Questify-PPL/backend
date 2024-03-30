@@ -16,6 +16,12 @@ enum Role {
   RESPONDENT
 }
 
+enum InvoiceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id                  String      @id @default(uuid())
   email               String      @unique
@@ -274,9 +280,14 @@ model InvoiceTopup {
   creatorId String
   creator   Creator @relation(fields: [creatorId], references: [userId])
 
-  amount             Int
-  status             String // Could be 'Pending', 'Validated', 'Rejected'
-  buktiPembayaranUrl String?
-  createdAt          DateTime  @default(now())
-  validatedAt        DateTime?
+  creatorName String
+
+  amount           Int      
+  status           InvoiceStatus @default(PENDING)
+  buktiPembayaranUrl String? 
+  createdAt        DateTime @default(now())
+  validatedAt      DateTime? 
+  payment String
+  exchange String
+  accountNumber String?
 }

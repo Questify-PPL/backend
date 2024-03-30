@@ -14,22 +14,25 @@ import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard } from 'src/guard';
 import { CurrentUser, Roles } from 'src/decorator';
 import { Role } from '@prisma/client';
-import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-import { CreateTopupDto, ValidateTopupDto } from 'src/dto';
+import { ValidateTopupDto } from 'src/dto/topup/validateTopup.dto';
+import { CreateTopupDto } from 'src/dto/topup/createTopup.dto';
 
 @ApiTags('topup')
 @Controller('topup')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TopupController {
-  constructor(
-    private readonly topupService: TopupService,
-    private cloudinaryService: CloudinaryService,
-  ) {}
+  constructor(private readonly topupService: TopupService) {}
 
-  @Get('/')
+  @Get('/onvalidation')
+  @Roles(Role.ADMIN)
+  getAllOnValidation() {
+    return this.topupService.getAllOnValidationInvoice();
+  }
+
+  @Get('/all')
   @Roles(Role.ADMIN)
   getAllInvoices() {
-    return this.topupService.getAllOnValidationInvoice();
+    return this.topupService.getAllInvoices();
   }
 
   @Get('/creator')
@@ -47,13 +50,7 @@ export class TopupController {
     @CurrentUser('id') userId: string,
     @Query('type') type: string,
   ) {
-    const buktiPembayaranUrl = await this.uploadFile(file);
-    return this.topupService.createTopup(
-      userId,
-      type,
-      createTopupDto,
-      buktiPembayaranUrl,
-    );
+    return this.topupService.createTopup(userId, type, createTopupDto, file);
   }
 
   @Post('/validate')
@@ -64,13 +61,5 @@ export class TopupController {
     @Query('invoiceId') invoiceId: string,
   ) {
     return this.topupService.validateTopup(invoiceId, type, validateTopupDto);
-  }
-
-  private async uploadFile(file: Express.Multer.File): Promise<string> {
-    const uploadResponse =
-      await this.cloudinaryService.uploadBuktiPembayaran(file);
-    const buktiPembayaranUrl = uploadResponse.url;
-
-    return buktiPembayaranUrl;
   }
 }
