@@ -46,8 +46,7 @@ export class FormService {
   }
 
   async getOwnedForm(userId: string, type?: string) {
-    console.log(type);
-    const forms = await this.processFormsForCreator(userId);
+    const forms = await this.processFormsForCreator(userId, type);
 
     return {
       statusCode: 200,
@@ -623,10 +622,13 @@ export class FormService {
     await updateOrDelete(this.prismaService, questionType, 'update');
   }
 
-  private async processFormsForCreator(userId: string) {
+  private async processFormsForCreator(userId: string, type?: string) {
     const forms = await this.prismaService.form.findMany({
       where: {
         creatorId: userId,
+        ...(type && {
+          isPublished: type === 'PUBLISHED',
+        }),
       },
       include: {
         Question: true,

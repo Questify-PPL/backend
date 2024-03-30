@@ -30,8 +30,11 @@ export class FormController {
 
   @Get('/creator')
   @Roles(Role.CREATOR)
-  getOwnedForm(@CurrentUser('id') userId: string) {
-    return this.formService.getOwnedForm(userId);
+  getOwnedForm(
+    @CurrentUser('id') userId: string,
+    @Query('type') type?: string,
+  ) {
+    return this.formService.getOwnedForm(userId, type);
   }
 
   @Roles(Role.RESPONDENT)
