@@ -192,6 +192,7 @@ describe('FormService', () => {
               upsert: jest.fn().mockResolvedValue({}),
               count: jest.fn().mockResolvedValue(0),
             },
+            $transaction: jest.fn(),
           },
         },
       ],
@@ -221,6 +222,8 @@ describe('FormService', () => {
     jest
       .spyOn(prismaService.form, 'findMany')
       .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService, '$transaction').mockResolvedValueOnce([1, 1]);
 
     expect(await service.getOwnedForm('userId')).toEqual(expect.any(Object));
   });
