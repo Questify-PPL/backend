@@ -45,7 +45,8 @@ export class FormService {
     };
   }
 
-  async getOwnedForm(userId: string) {
+  async getOwnedForm(userId: string, type?: string) {
+    console.log(type);
     const forms = await this.processFormsForCreator(userId);
 
     return {

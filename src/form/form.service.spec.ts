@@ -228,6 +228,30 @@ describe('FormService', () => {
     expect(await service.getOwnedForm('userId')).toEqual(expect.any(Object));
   });
 
+  it('should call prismaService.form.findMany with forms type with the correct arguments', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService, '$transaction').mockResolvedValueOnce([1, 1]);
+
+    expect(await service.getOwnedForm('userId', 'PUBLISHED')).toEqual(
+      expect.any(Object),
+    );
+  });
+
+  it('should call prismaService.form.findMany with forms type with the correct arguments', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService, '$transaction').mockResolvedValueOnce([1, 1]);
+
+    expect(await service.getOwnedForm('userId', 'UNPUBLISHED')).toEqual(
+      expect.any(Object),
+    );
+  });
+
   it('should call prismaService.form.findMany with the correct arguments', async () => {
     jest
       .spyOn(prismaService.form, 'findMany')
