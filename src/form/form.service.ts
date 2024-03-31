@@ -303,35 +303,143 @@ export class FormService {
   */
 
   async getFormSummary(formId: string, userId: string) {
+    const form = await this.validateVisibility(formId, userId);
+
+    const formStatistics = this.excludeKeys(
+      {
+        ...form,
+        questionsStatistics: form.Question.map((question) => {
+          const questionType = question.questionType;
+          const questionAnswers = question.Answer.map((answer) => {
+            return answer.answer;
+          });
+
+          let statistics;
+
+          if (questionType === 'RADIO' || questionType === 'CHECKBOX') {
+            const choices =
+              questionType === 'RADIO'
+                ? question.Radio.choice
+                : question.Checkbox.choice;
+
+            const questionAnswersToBeProcessed = (
+              questionAnswers as string[][]
+            ).flat();
+
+            const amounts = [];
+
+            choices.map((choice) => {
+              const amount = questionAnswersToBeProcessed.reduce(
+                (acc, answer) => {
+                  return answer === choice ? acc + 1 : acc;
+                },
+                0,
+              );
+
+              amounts.push(amount);
+            });
+
+            statistics = {
+              choices: choices,
+              amounts: amounts,
+            };
+          }
+
+          if (questionType === 'TEXT') {
+            const typedAnswer = questionAnswers as {
+              answer: string;
+            }[];
+
+            statistics = typedAnswer.map((answer) => answer.answer);
+          }
+
+          return this.excludeKeys(
+            {
+              ...question,
+              statistics: statistics,
+            },
+            ['Radio', 'Checkbox', 'formId', 'Answer'],
+          );
+        }),
+      },
+      ['Question', 'Section'],
+    );
+
     return {
       statusCode: 200,
-      message: 'Successfully get form summary',
-      data: {
-        formId,
-        userId,
-      },
+      message: 'Successfully get questionnaire summary',
+      data: formStatistics,
     };
   }
 
   async getAllQuestionsAnswer(formId: string, userId: string) {
+    const form = await this.validateVisibility(formId, userId);
+
+    const questionsAnswer = form.Question.map((question) => {
+      const occurenceDict = {};
+
+      question.Answer.map((answer) => {
+        if (
+          question.questionType === 'RADIO' ||
+          question.questionType === 'CHECKBOX'
+        ) {
+          (answer.answer as string[]).forEach((chosenAnswer) => {
+            if (!occurenceDict[chosenAnswer]) {
+              occurenceDict[chosenAnswer] = 1;
+            } else {
+              occurenceDict[chosenAnswer]++;
+            }
+          });
+        } else {
+          const chosenAnswer = (
+            answer.answer as {
+              answer: string;
+            }
+          ).answer;
+
+          if (!occurenceDict[chosenAnswer]) {
+            occurenceDict[chosenAnswer] = 1;
+          } else {
+            occurenceDict[chosenAnswer]++;
+          }
+        }
+
+        return occurenceDict;
+      });
+
+      return this.excludeKeys(
+        {
+          ...question,
+          answers: occurenceDict,
+        },
+        ['Radio', 'Checkbox', 'formId', 'Answer'],
+      );
+    });
+
     return {
       statusCode: 200,
       message: 'Successfully get all questions answer',
-      data: {
-        formId,
-        userId,
-      },
+      data: questionsAnswer,
     };
   }
 
   async getAllIndividual(formId: string, userId: string) {
+    await this.validateVisibility(formId, userId);
+
+    const allIndividuals = await this.prismaService.participation.findMany({
+      where: {
+        formId: formId,
+        isCompleted: true,
+      },
+      select: {
+        respondentId: true,
+      },
+    });
+
     return {
       statusCode: 200,
       message: 'Successfully get all individual',
-      data: {
-        formId,
-        userId,
-      },
+      data: allIndividuals.map((individual) => individual.respondentId),
     };
   }
 
@@ -339,6 +447,26 @@ export class FormService {
         Utils
       ======================================================
   */
+
+  private async validateVisibility(formId: string, userId: string) {
+    const form = await this.returnLatestForm(formId);
+
+    if (!form) {
+      throw new BadRequestException('Form not found');
+    }
+
+    if (form.creatorId !== userId) {
+      throw new BadRequestException(
+        'User is not authorized to view form summary',
+      );
+    }
+
+    if (!form.isPublished) {
+      throw new BadRequestException('Form is not published');
+    }
+
+    return form;
+  }
 
   private async processQuestions(
     formQuestions: FormQuestion[],
