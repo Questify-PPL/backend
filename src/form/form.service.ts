@@ -305,62 +305,57 @@ export class FormService {
   async getFormSummary(formId: string, userId: string) {
     const form = await this.validateVisibility(formId, userId);
 
+    const questionStatistics = [];
+
+    form.Question.forEach((question) => {
+      const questionType = question.questionType;
+      const questionAnswers = question.Answer.map((answer) => {
+        return answer.answer;
+      });
+
+      let statistics;
+
+      if (questionType === 'RADIO' || questionType === 'CHECKBOX') {
+        const choices =
+          questionType === 'RADIO'
+            ? question.Radio.choice
+            : question.Checkbox.choice;
+
+        const questionAnswersToBeProcessed = (
+          questionAnswers as string[][]
+        ).flat();
+
+        const amounts = [];
+
+        choices.map((choice) => {
+          const amount = questionAnswersToBeProcessed.reduce((acc, answer) => {
+            return answer === choice ? acc + 1 : acc;
+          }, 0);
+
+          amounts.push(amount);
+        });
+
+        statistics = {
+          choices: choices,
+          amounts: amounts,
+        };
+      }
+
+      if (questionType === 'TEXT') {
+        const typedAnswer = questionAnswers as {
+          answer: string;
+        }[];
+
+        statistics = typedAnswer.map((answer) => answer.answer);
+      }
+
+      this.groupBySectionId(questionStatistics, question, statistics);
+    });
+
     const formStatistics = this.excludeKeys(
       {
         ...form,
-        questionsStatistics: form.Question.map((question) => {
-          const questionType = question.questionType;
-          const questionAnswers = question.Answer.map((answer) => {
-            return answer.answer;
-          });
-
-          let statistics;
-
-          if (questionType === 'RADIO' || questionType === 'CHECKBOX') {
-            const choices =
-              questionType === 'RADIO'
-                ? question.Radio.choice
-                : question.Checkbox.choice;
-
-            const questionAnswersToBeProcessed = (
-              questionAnswers as string[][]
-            ).flat();
-
-            const amounts = [];
-
-            choices.map((choice) => {
-              const amount = questionAnswersToBeProcessed.reduce(
-                (acc, answer) => {
-                  return answer === choice ? acc + 1 : acc;
-                },
-                0,
-              );
-
-              amounts.push(amount);
-            });
-
-            statistics = {
-              choices: choices,
-              amounts: amounts,
-            };
-          }
-
-          if (questionType === 'TEXT') {
-            const typedAnswer = questionAnswers as {
-              answer: string;
-            }[];
-
-            statistics = typedAnswer.map((answer) => answer.answer);
-          }
-
-          return this.excludeKeys(
-            {
-              ...question,
-              statistics: statistics,
-            },
-            ['Radio', 'Checkbox', 'formId', 'Answer'],
-          );
-        }),
+        questionsStatistics: questionStatistics,
       },
       ['Question', 'Section'],
     );
@@ -1092,5 +1087,59 @@ export class FormService {
 
   private decideWinningChance() {
     return 0;
+  }
+
+  private async groupBySectionId(
+    acc: any[],
+    question: QuestionPrisma & {
+      Radio: Radio;
+      Checkbox: Checkbox;
+      Answer: Answer[];
+    },
+    statistics: any,
+  ) {
+    if (question.sectionId) {
+      const sectionId = question.sectionId;
+
+      // group by sectionId
+      const sectionIndex = acc.findIndex(
+        (question) => question.sectionId === sectionId,
+      );
+
+      if (sectionIndex === -1) {
+        acc.push({
+          sectionId: sectionId,
+          questions: [
+            this.excludeKeys(
+              {
+                ...question,
+                statistics: statistics,
+              },
+              ['Radio', 'Checkbox', 'formId', 'Answer'],
+            ),
+          ],
+        });
+      } else {
+        acc[sectionIndex].questions.push(
+          this.excludeKeys(
+            {
+              ...question,
+              statistics: statistics,
+            },
+            ['Radio', 'Checkbox', 'formId', 'Answer'],
+          ),
+        );
+      }
+    } else {
+      acc.push(
+        this.excludeKeys(
+          {
+            ...question,
+            statistics: statistics,
+          },
+          ['Radio', 'Checkbox', 'formId', 'Answer'],
+        ),
+      );
+    }
   }
 }
