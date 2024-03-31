@@ -187,8 +187,6 @@ export class TopupService {
   }
 
   private async uploadFile(file: Express.Multer.File): Promise<string> {
-    console.log(file);
-
     const uploadResponse =
       await this.cloudinaryService.uploadBuktiPembayaran(file);
     const buktiPembayaranUrl = uploadResponse.url;
