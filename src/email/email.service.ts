@@ -2,6 +2,8 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MailerService } from '@nestjs-modules/mailer';
 import { randomBytes } from 'crypto';
+import { ContactDataDTO } from 'src/dto/auth/contactData.dto';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class EmailService {
@@ -96,6 +98,36 @@ export class EmailService {
     return {
       statusCode: 200,
       message: 'Email successfully verified',
+    };
+  }
+
+  async sendContactData(user: User, contactDataDTO: ContactDataDTO) {
+    if (user == null || user.firstName == '') {
+      throw new BadRequestException('Invalid User');
+    }
+
+    this.mailerService.sendMail({
+      to: 'questifyst.official@gmail.com',
+      subject: 'New Message from Contact Us',
+      html: `
+        <p>Hello Questify Team,</p>
+        <p>A user has sent a message through the Contact Us feature with the following details:</p>
+        <p>Name: ${user.firstName} ${user.lastName}</p>
+        <p>Email: ${user.email}</p>
+        <div style="border: 1px solid #ccc; padding: 20px; border-radius: 8px;">
+          <p><strong>${contactDataDTO.subject}</strong></p>
+          <div style="border-top: 1px solid #ccc; padding-top: 10px; margin-top: 10px;">
+            <p>${contactDataDTO.message}</p>
+          </div>
+        </div>
+        <p>Please respond to the user's inquiry or feedback as soon as possible.</p>
+        <p>Thank you.</p>
+      `,
+    });
+
+    return {
+      statusCode: 201,
+      message: 'Email successfully sent to Questify',
     };
   }
 }
