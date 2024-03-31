@@ -141,4 +141,93 @@ describe('EmailService', () => {
       BadRequestException,
     );
   });
+
+  it('should send the contact data with the user data to Questify', async () => {
+    enum Role {
+      CREATOR = 'CREATOR',
+      RESPONDENT = 'RESPONDENT',
+    }
+    const mockedUser = {
+      id: '1',
+      email: 'johndoe@gmail.com',
+      roles: [Role.CREATOR, Role.RESPONDENT],
+      password: null,
+      ssoUsername: null,
+      firstName: 'John',
+      lastName: 'Doe',
+      phoneNumber: null,
+      gender: null,
+      companyName: null,
+      birthDate: null,
+      credit: 0,
+      isVerified: true,
+      isBlocked: false,
+      hasCompletedProfile: true,
+    };
+    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' }
+
+    mailerService.sendMail = jest.fn().mockResolvedValue(true);
+
+    const result = await service.sendContactData(mockedUser, contactDataDTO);
+
+    expect(mailerService.sendMail).toHaveBeenCalledWith({
+      to: 'questifyst.official@gmail.com',
+      subject: 'New Message from Contact Us',
+      html: `
+        <p>Hello Questify Team,</p>
+        <p>A user has sent a message through the Contact Us feature with the following details:</p>
+        <p>Name: ${mockedUser.firstName} ${mockedUser.lastName}</p>
+        <p>Email: ${mockedUser.email}</p>
+        <div style="border: 1px solid #ccc; padding: 20px; border-radius: 8px;">
+          <p><strong>${contactDataDTO.subject}</strong></p>
+          <div style="border-top: 1px solid #ccc; padding-top: 10px; margin-top: 10px;">
+            <p>${contactDataDTO.message}</p>
+          </div>
+        </div>
+        <p>Please respond to the user's inquiry or feedback as soon as possible.</p>
+        <p>Thank you.</p>
+      `,
+    });
+
+    expect(result).toEqual({
+      statusCode: 201,
+      message: 'Email successfully sent to Questify',
+    });
+  });
+
+  it('should throw an error if the user is null', async () => {
+    const mockedUser = null;
+    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' }
+
+    await expect(service.sendContactData(mockedUser, contactDataDTO))
+      .rejects.toThrow(new BadRequestException('Invalid User'));
+  });
+
+  it('should throw an error if the user has no name', async () => {
+    enum Role {
+      CREATOR = 'CREATOR',
+      RESPONDENT = 'RESPONDENT',
+    }
+    const mockedUser = {
+      id: '1',
+      email: 'johndoe@gmail.com',
+      roles: [Role.CREATOR, Role.RESPONDENT],
+      password: null,
+      ssoUsername: null,
+      firstName: '',
+      lastName: '',
+      phoneNumber: null,
+      gender: null,
+      companyName: null,
+      birthDate: null,
+      credit: 0,
+      isVerified: true,
+      isBlocked: false,
+      hasCompletedProfile: true,
+    };
+    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' }
+
+    await expect(service.sendContactData(mockedUser, contactDataDTO))
+      .rejects.toThrow(new BadRequestException('Invalid User'));
+  });
 });
