@@ -30,8 +30,11 @@ export class FormController {
 
   @Get('/creator')
   @Roles(Role.CREATOR)
-  getOwnedForm(@CurrentUser('id') userId: string) {
-    return this.formService.getOwnedForm(userId);
+  getOwnedForm(
+    @CurrentUser('id') userId: string,
+    @Query('type') type?: string,
+  ) {
+    return this.formService.getOwnedForm(userId, type);
   }
 
   @Roles(Role.RESPONDENT)
@@ -119,5 +122,32 @@ export class FormController {
       userId,
       updateParticipationDTO,
     );
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/statistics')
+  getFormSummary(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getFormSummary(formId, userId);
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/questions')
+  getAllQuestionsAnswer(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getAllQuestionsAnswer(formId, userId);
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/individual')
+  getAllIndividual(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getAllIndividual(formId, userId);
   }
 }

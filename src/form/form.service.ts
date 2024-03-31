@@ -45,8 +45,8 @@ export class FormService {
     };
   }
 
-  async getOwnedForm(userId: string) {
-    const forms = await this.processFormsForCreator(userId);
+  async getOwnedForm(userId: string, type?: string) {
+    const forms = await this.processFormsForCreator(userId, type);
 
     return {
       statusCode: 200,
@@ -112,7 +112,7 @@ export class FormService {
     userId: string,
     updateFormDTO: UpdateFormDTO,
   ) {
-    const { formQuestions, ...rest } = updateFormDTO;
+    const { formQuestions, isPublished, isDraft, ...rest } = updateFormDTO;
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
@@ -131,6 +131,14 @@ export class FormService {
       },
       data: {
         ...rest,
+        ...(isPublished && {
+          isPublished: isPublished,
+          isDraft: !isPublished,
+        }),
+        ...(isDraft && {
+          isDraft: isDraft,
+          isPublished: !isDraft,
+        }),
       },
       include: {
         Question: {
@@ -147,7 +155,7 @@ export class FormService {
     return {
       statusCode: 200,
       message: 'Successfully update form',
-      data: this.processFormInGeneral(updatedForm),
+      data: await this.processFormInGeneral(updatedForm),
     };
   }
 
@@ -290,9 +298,192 @@ export class FormService {
   }
 
   /*  ======================================================
+        Questionnaire Summary and Statistics
+      ======================================================
+  */
+
+  async getFormSummary(formId: string, userId: string) {
+    const form = await this.validateVisibility(formId, userId);
+
+    const questionStatistics = [];
+
+    form.Question.forEach((question) => {
+      const questionType = question.questionType;
+      const questionAnswers = question.Answer.map((answer) => {
+        return answer.answer;
+      });
+
+      let statistics;
+
+      if (questionType === 'RADIO' || questionType === 'CHECKBOX') {
+        const choices =
+          questionType === 'RADIO'
+            ? question.Radio.choice
+            : question.Checkbox.choice;
+
+        const questionAnswersToBeProcessed = (
+          questionAnswers as string[][]
+        ).flat();
+
+        const amounts = [];
+
+        choices.map((choice) => {
+          const amount = questionAnswersToBeProcessed.reduce((acc, answer) => {
+            return answer === choice ? acc + 1 : acc;
+          }, 0);
+
+          amounts.push(amount);
+        });
+
+        statistics = {
+          choices: choices,
+          amounts: amounts,
+        };
+      }
+
+      if (questionType === 'TEXT') {
+        const typedAnswer = questionAnswers as {
+          answer: string;
+        }[];
+
+        statistics = typedAnswer.map((answer) => answer.answer);
+      }
+
+      const questionToBePut = this.excludeKeys(
+        {
+          ...question,
+          statistics: statistics,
+        },
+        ['Radio', 'Checkbox', 'formId', 'Answer'],
+      );
+
+      this.groupBySectionId(
+        form.Section,
+        questionStatistics,
+        question,
+        questionToBePut,
+      );
+    });
+
+    const formStatistics = this.excludeKeys(
+      {
+        ...form,
+        questionsStatistics: questionStatistics,
+      },
+      ['Question', 'Section'],
+    );
+
+    return {
+      statusCode: 200,
+      message: 'Successfully get questionnaire summary',
+      data: formStatistics,
+    };
+  }
+
+  async getAllQuestionsAnswer(formId: string, userId: string) {
+    const form = await this.validateVisibility(formId, userId);
+
+    const questionsAnswer = [];
+
+    form.Question.forEach((question) => {
+      const occurenceDict = {};
+
+      question.Answer.map((answer) => {
+        if (
+          question.questionType === 'RADIO' ||
+          question.questionType === 'CHECKBOX'
+        ) {
+          (answer.answer as string[]).forEach((chosenAnswer) => {
+            if (!occurenceDict[chosenAnswer]) {
+              occurenceDict[chosenAnswer] = 1;
+            } else {
+              occurenceDict[chosenAnswer]++;
+            }
+          });
+        } else {
+          const chosenAnswer = (
+            answer.answer as {
+              answer: string;
+            }
+          ).answer;
+
+          if (!occurenceDict[chosenAnswer]) {
+            occurenceDict[chosenAnswer] = 1;
+          } else {
+            occurenceDict[chosenAnswer]++;
+          }
+        }
+
+        return occurenceDict;
+      });
+
+      const questionToBePut = this.excludeKeys(
+        {
+          ...question,
+          occurence: occurenceDict,
+        },
+        ['Radio', 'Checkbox', 'formId', 'Answer'],
+      );
+
+      this.groupBySectionId(
+        form.Section,
+        questionsAnswer,
+        question,
+        questionToBePut,
+      );
+    });
+
+    return {
+      statusCode: 200,
+      message: 'Successfully get all questions answer',
+      data: questionsAnswer,
+    };
+  }
+
+  async getAllIndividual(formId: string, userId: string) {
+    await this.validateVisibility(formId, userId);
+
+    const allIndividuals = await this.prismaService.participation.findMany({
+      where: {
+        formId: formId,
+        isCompleted: true,
+      },
+      select: {
+        respondentId: true,
+      },
+    });
+
+    return {
+      statusCode: 200,
+      message: 'Successfully get all individual',
+      data: allIndividuals.map((individual) => individual.respondentId),
+    };
+  }
+
+  /*  ======================================================
         Utils
       ======================================================
   */
+
+  private async validateVisibility(formId: string, userId: string) {
+    const form = await this.returnLatestForm(formId);
+
+    if (!form) {
+      throw new BadRequestException('Form not found');
+    }
+
+    if (form.creatorId !== userId) {
+      throw new BadRequestException(
+        'User is not authorized to view form summary',
+      );
+    }
+
+    if (!form.isPublished) {
+      throw new BadRequestException('Form is not published');
+    }
+
+    return form;
+  }
 
   private async processQuestions(
     formQuestions: FormQuestion[],
@@ -617,36 +808,46 @@ export class FormService {
     await updateOrDelete(this.prismaService, questionType, 'update');
   }
 
-  private async processFormsForCreator(userId: string) {
+  private async processFormsForCreator(userId: string, type?: string) {
     const forms = await this.prismaService.form.findMany({
       where: {
         creatorId: userId,
+        ...(type && {
+          isPublished: type === 'PUBLISHED',
+        }),
+      },
+      include: {
+        Question: true,
       },
     });
 
     const formsWithStats = forms.map(async (form) => {
-      const ongoingParticipation = await this.prismaService.participation.count(
+      const [ongoingParticipation, completedParticipation] =
+        await this.prismaService.$transaction([
+          this.prismaService.participation.count({
+            where: {
+              formId: form.id,
+              isCompleted: false,
+            },
+          }),
+          this.prismaService.participation.count({
+            where: {
+              formId: form.id,
+              isCompleted: true,
+            },
+          }),
+        ]);
+
+      return this.excludeKeys(
         {
-          where: {
-            formId: form.id,
-            isCompleted: false,
-          },
+          ...form,
+          ongoingParticipation,
+          completedParticipation,
+          questionAmount: form.Question.length,
+          isCompleted: form.endedAt !== null && form.endedAt < new Date(),
         },
+        ['Question'],
       );
-
-      const completedParticipation =
-        await this.prismaService.participation.count({
-          where: {
-            formId: form.id,
-            isCompleted: true,
-          },
-        });
-
-      return {
-        ...form,
-        ongoingParticipation,
-        completedParticipation,
-      };
     });
 
     return Promise.all(formsWithStats);
@@ -744,25 +945,7 @@ export class FormService {
           ['Answer', 'Radio', 'Checkbox', 'formId'],
         );
 
-        if (question.sectionId) {
-          const section = form.Section.find(
-            (section) => section.sectionId === question.sectionId,
-          );
-          const sectionIndex = acc.findIndex(
-            (section) => section.sectionId === question.sectionId,
-          );
-
-          if (sectionIndex === -1) {
-            acc.push({
-              ...(this.excludeKeys(section, ['formId']) as Section),
-              questions: [questionWithChoice],
-            });
-          } else {
-            acc[sectionIndex].questions.push(questionWithChoice);
-          }
-        } else {
-          acc.push(questionWithChoice);
-        }
+        this.groupBySectionId(form.Section, acc, question, questionWithChoice);
 
         return acc;
       },
@@ -791,6 +974,7 @@ export class FormService {
             !participation.isCompleted &&
             (!form.endedAt || form.endedAt >= new Date()),
         }),
+        questionAmount: form.Question.length,
       },
       ['Question', 'Section'],
     );
@@ -907,5 +1091,40 @@ export class FormService {
 
   private decideWinningChance() {
     return 0;
+  }
+
+  private async groupBySectionId(
+    Section: Section[],
+    acc: any[],
+    question: QuestionPrisma & {
+      Radio: Radio;
+      Checkbox: Checkbox;
+      Answer: Answer[];
+    },
+    toPut: any,
+  ) {
+    if (question.sectionId) {
+      const sectionId = question.sectionId;
+
+      const section = Section.find(
+        (section) => section.sectionId === sectionId,
+      );
+
+      // group by sectionId
+      const sectionIndex = acc.findIndex(
+        (question) => question.sectionId === sectionId,
+      );
+
+      if (sectionIndex === -1) {
+        acc.push({
+          ...(this.excludeKeys(section, ['formId']) as Section),
+          questions: [toPut],
+        });
+      } else {
+        acc[sectionIndex].questions.push(toPut);
+      }
+    } else {
+      acc.push(toPut);
+    }
   }
 }

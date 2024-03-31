@@ -31,9 +31,7 @@ describe('FormService', () => {
           },
           {
             respondentId: 'userId',
-            answer: {
-              answer: 'A',
-            },
+            answer: ['B'],
           },
         ],
       },
@@ -55,9 +53,29 @@ describe('FormService', () => {
           },
           {
             respondentId: 'userId',
+            answer: ['A'],
+          },
+        ],
+      },
+      {
+        questionType: 'TEXT',
+        sectionId: 1,
+        isRequired: true,
+        question: 'Question 3',
+        Answer: [
+          {
+            respondentId: 'userId',
+            answer: 'A',
+          },
+          {
+            respondentId: 'userId',
             answer: {
-              answer: 'A',
+              answer: 'B',
             },
+          },
+          {
+            respondentId: 'userId',
+            answer: 'A',
           },
         ],
       },
@@ -98,9 +116,7 @@ describe('FormService', () => {
               },
               {
                 respondentId: 'userId',
-                answer: {
-                  answer: 'A',
-                },
+                answer: ['B'],
               },
             ],
           },
@@ -192,6 +208,7 @@ describe('FormService', () => {
               upsert: jest.fn().mockResolvedValue({}),
               count: jest.fn().mockResolvedValue(0),
             },
+            $transaction: jest.fn(),
           },
         },
       ],
@@ -222,7 +239,33 @@ describe('FormService', () => {
       .spyOn(prismaService.form, 'findMany')
       .mockResolvedValue(dummyForms as any);
 
+    jest.spyOn(prismaService, '$transaction').mockResolvedValueOnce([1, 1]);
+
     expect(await service.getOwnedForm('userId')).toEqual(expect.any(Object));
+  });
+
+  it('should call prismaService.form.findMany with forms type with the correct arguments', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService, '$transaction').mockResolvedValueOnce([1, 1]);
+
+    expect(await service.getOwnedForm('userId', 'PUBLISHED')).toEqual(
+      expect.any(Object),
+    );
+  });
+
+  it('should call prismaService.form.findMany with forms type with the correct arguments', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService, '$transaction').mockResolvedValueOnce([1, 1]);
+
+    expect(await service.getOwnedForm('userId', 'UNPUBLISHED')).toEqual(
+      expect.any(Object),
+    );
   });
 
   it('should call prismaService.form.findMany with the correct arguments', async () => {
@@ -530,7 +573,7 @@ describe('FormService', () => {
     ).rejects.toThrow('Form is already published');
   });
 
-  it('should call prismaService.form.update with the correct arguments', async () => {
+  it('should call prismaService.form.update with the correct arguments to make form drafted again', async () => {
     jest
       .spyOn(prismaService.form, 'findUnique')
       .mockResolvedValue({ creatorId: 'userId' } as any);
@@ -544,6 +587,33 @@ describe('FormService', () => {
       prize: 20000,
       prizeType: 'LUCKY',
       maxWinner: 1,
+      isDraft: true,
+    };
+
+    expect(
+      await service.updateForm('formId', 'userId', updateDTO as any),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update form',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should call prismaService.form.update with the correct arguments to make form published', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.form, 'update')
+      .mockResolvedValue(dummyForm as any);
+
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      isPublished: true,
     };
 
     expect(
@@ -1155,5 +1225,158 @@ describe('FormService', () => {
       message: 'Successfully update participation',
       data: {},
     });
+  });
+
+  it('should call getFormSummary with the correct arguments', async () => {
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...dummyForm,
+      isPublished: true,
+    } as any);
+
+    expect(await service.getFormSummary('formId', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get questionnaire summary',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should throw an error if form is not found in getFormSummary', async () => {
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null as any);
+
+    await expect(service.getFormSummary('formId', userId)).rejects.toThrow(
+      'Form not found',
+    );
+  });
+
+  it('should throw an error if user is not the creator of the form in getFormSummary', async () => {
+    const userId = 'userId';
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'otherUserId' } as any);
+
+    await expect(service.getFormSummary('formId', userId)).rejects.toThrow(
+      'User is not authorized to view form summary',
+    );
+  });
+
+  it('should throw an error if form is not published in getFormSummary', async () => {
+    const userId = 'userId';
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId', isPublished: false } as any);
+
+    await expect(service.getFormSummary('formId', userId)).rejects.toThrow(
+      'Form is not published',
+    );
+  });
+
+  it('should call getAllQuestionsAnswer with the correct arguments', async () => {
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...dummyForm,
+      isPublished: true,
+    } as any);
+
+    expect(await service.getAllQuestionsAnswer('formId', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get all questions answer',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should throw an error if participation is not found in getAllQuestionsAnswer', async () => {
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null);
+
+    await expect(
+      service.getAllQuestionsAnswer('formId', userId),
+    ).rejects.toThrow('Form not found');
+  });
+
+  it('should throw an error if respondent is not the authorized in getAllQuestionsAnswer', async () => {
+    const userId = 'userId';
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'otherUserId' } as any);
+
+    await expect(
+      service.getAllQuestionsAnswer('formId', userId),
+    ).rejects.toThrow('User is not authorized to view form summary');
+  });
+
+  it('should throw an error if form is not published in getAllQuestionsAnswer', async () => {
+    const userId = 'userId';
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId', isPublished: false } as any);
+
+    await expect(
+      service.getAllQuestionsAnswer('formId', userId),
+    ).rejects.toThrow('Form is not published');
+  });
+
+  it('should call getAllIndividual with the correct arguments', async () => {
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...dummyForm,
+      isPublished: true,
+    } as any);
+
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue([
+      {
+        respondentId: 'userId',
+      },
+    ] as any);
+
+    expect(await service.getAllIndividual('formId', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get all individual',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should throw an error if form is not found in getAllIndividual', async () => {
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null as any);
+
+    await expect(service.getAllIndividual('formId', userId)).rejects.toThrow(
+      'Form not found',
+    );
+  });
+
+  it('should throw an error if user is not the creator of the form in getAllIndividual', async () => {
+    const userId = 'userId';
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'otherUserId' } as any);
+
+    await expect(service.getAllIndividual('formId', userId)).rejects.toThrow(
+      'User is not authorized to view form summary',
+    );
+  });
+
+  it('should throw an error if form is not published in getAllIndividual', async () => {
+    const userId = 'userId';
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId', isPublished: false } as any);
+
+    await expect(service.getAllIndividual('formId', userId)).rejects.toThrow(
+      'Form is not published',
+    );
   });
 });
