@@ -349,7 +349,20 @@ export class FormService {
         statistics = typedAnswer.map((answer) => answer.answer);
       }
 
-      this.groupBySectionId(questionStatistics, question, statistics);
+      const questionToBePut = this.excludeKeys(
+        {
+          ...question,
+          statistics: statistics,
+        },
+        ['Radio', 'Checkbox', 'formId', 'Answer'],
+      );
+
+      this.groupBySectionId(
+        form.Section,
+        questionStatistics,
+        question,
+        questionToBePut,
+      );
     });
 
     const formStatistics = this.excludeKeys(
@@ -370,7 +383,9 @@ export class FormService {
   async getAllQuestionsAnswer(formId: string, userId: string) {
     const form = await this.validateVisibility(formId, userId);
 
-    const questionsAnswer = form.Question.map((question) => {
+    const questionsAnswer = [];
+
+    form.Question.forEach((question) => {
       const occurenceDict = {};
 
       question.Answer.map((answer) => {
@@ -402,12 +417,19 @@ export class FormService {
         return occurenceDict;
       });
 
-      return this.excludeKeys(
+      const questionToBePut = this.excludeKeys(
         {
           ...question,
-          answers: occurenceDict,
+          occurence: occurenceDict,
         },
         ['Radio', 'Checkbox', 'formId', 'Answer'],
+      );
+
+      this.groupBySectionId(
+        form.Section,
+        questionsAnswer,
+        question,
+        questionToBePut,
       );
     });
 
@@ -923,25 +945,7 @@ export class FormService {
           ['Answer', 'Radio', 'Checkbox', 'formId'],
         );
 
-        if (question.sectionId) {
-          const section = form.Section.find(
-            (section) => section.sectionId === question.sectionId,
-          );
-          const sectionIndex = acc.findIndex(
-            (section) => section.sectionId === question.sectionId,
-          );
-
-          if (sectionIndex === -1) {
-            acc.push({
-              ...(this.excludeKeys(section, ['formId']) as Section),
-              questions: [questionWithChoice],
-            });
-          } else {
-            acc[sectionIndex].questions.push(questionWithChoice);
-          }
-        } else {
-          acc.push(questionWithChoice);
-        }
+        this.groupBySectionId(form.Section, acc, question, questionWithChoice);
 
         return acc;
       },
@@ -1090,16 +1094,21 @@ export class FormService {
   }
 
   private async groupBySectionId(
+    Section: Section[],
     acc: any[],
     question: QuestionPrisma & {
       Radio: Radio;
       Checkbox: Checkbox;
       Answer: Answer[];
     },
-    statistics: any,
+    toPut: any,
   ) {
     if (question.sectionId) {
       const sectionId = question.sectionId;
+
+      const section = Section.find(
+        (section) => section.sectionId === sectionId,
+      );
 
       // group by sectionId
       const sectionIndex = acc.findIndex(
@@ -1108,38 +1117,14 @@ export class FormService {
 
       if (sectionIndex === -1) {
         acc.push({
-          sectionId: sectionId,
-          questions: [
-            this.excludeKeys(
-              {
-                ...question,
-                statistics: statistics,
-              },
-              ['Radio', 'Checkbox', 'formId', 'Answer'],
-            ),
-          ],
+          ...(this.excludeKeys(section, ['formId']) as Section),
+          questions: [toPut],
         });
       } else {
-        acc[sectionIndex].questions.push(
-          this.excludeKeys(
-            {
-              ...question,
-              statistics: statistics,
-            },
-            ['Radio', 'Checkbox', 'formId', 'Answer'],
-          ),
-        );
+        acc[sectionIndex].questions.push(toPut);
       }
     } else {
-      acc.push(
-        this.excludeKeys(
-          {
-            ...question,
-            statistics: statistics,
-          },
-          ['Radio', 'Checkbox', 'formId', 'Answer'],
-        ),
-      );
+      acc.push(toPut);
     }
   }
 }
