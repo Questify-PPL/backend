@@ -302,6 +302,39 @@ export class FormService {
       ======================================================
   */
 
+  async getFormSummary(formId: string, userId: string) {
+    return {
+      statusCode: 200,
+      message: 'Successfully get form summary',
+      data: {
+        formId,
+        userId,
+      },
+    };
+  }
+
+  async getAllQuestionsAnswer(formId: string, userId: string) {
+    return {
+      statusCode: 200,
+      message: 'Successfully get all questions answer',
+      data: {
+        formId,
+        userId,
+      },
+    };
+  }
+
+  async getAllIndividual(formId: string, userId: string) {
+    return {
+      statusCode: 200,
+      message: 'Successfully get all individual',
+      data: {
+        formId,
+        userId,
+      },
+    };
+  }
+
   /*  ======================================================
         Utils
       ======================================================

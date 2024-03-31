@@ -24,6 +24,9 @@ describe('FormController', () => {
             deleteQuestion: jest.fn().mockResolvedValue({}),
             participateOnQuestionnaire: jest.fn().mockResolvedValue({}),
             updateParticipation: jest.fn().mockResolvedValue({}),
+            getFormSummary: jest.fn().mockResolvedValue({}),
+            getAllQuestionsAnswer: jest.fn().mockResolvedValue({}),
+            getAllIndividual: jest.fn().mockResolvedValue({}),
           },
         },
       ],
@@ -136,5 +139,23 @@ describe('FormController', () => {
         updateParticipationDTO,
       ),
     ).toEqual({});
+  });
+
+  it('should call formService.getFormSummary with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    expect(await controller.getFormSummary(formId, userId)).toEqual({});
+  });
+
+  it('should call formService.getAllQuestionsAnswer with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    expect(await controller.getAllQuestionsAnswer(formId, userId)).toEqual({});
+  });
+
+  it('should call formService.getAllIndividualAnswer with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    expect(await controller.getAllIndividual(formId, userId)).toEqual({});
   });
 });

@@ -123,4 +123,31 @@ export class FormController {
       updateParticipationDTO,
     );
   }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/statistics')
+  getFormSummary(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getFormSummary(formId, userId);
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/questions')
+  getAllQuestionsAnswer(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getAllQuestionsAnswer(formId, userId);
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/individual')
+  getAllIndividual(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getAllIndividual(formId, userId);
+  }
 }
