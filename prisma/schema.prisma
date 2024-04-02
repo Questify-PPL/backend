@@ -22,6 +22,12 @@ enum InvoiceStatus {
   REJECTED
 }
 
+enum ExchangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id                  String      @id @default(uuid())
   email               String      @unique
@@ -45,6 +51,7 @@ model User {
   ReportTo            Report[]    @relation("to")
   ReportFrom          Report[]    @relation("from")
   Voucher             Voucher[]
+  Withdrawal          Withdrawal[]
 }
 
 model Admin {
@@ -290,4 +297,21 @@ model InvoiceTopup {
   payment String
   exchange String
   accountNumber String?
+}
+
+model Withdrawal {
+  id String @id @default(uuid())
+
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+  userName String
+
+  status      ExchangeStatus   @default(PENDING)
+  createdAt   DateTime         @default(now())
+  validatedAt DateTime?
+
+  exchange      String @default("Withdraw")
+  amount        Int
+  payment       String
+  accountNumber String
 }
