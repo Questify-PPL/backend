@@ -17,6 +17,7 @@ import {
   UpdateParticipationDTO,
 } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Parser } from 'json2csv';
 import { Response } from 'express';
 
 @Injectable()
@@ -462,15 +463,28 @@ export class FormService {
   }
 
   async exportFormAsCSV(formId: string, userId: string, res: Response) {
-    return {
-      statusCode: 200,
-      message: 'Successfully export form as CSV',
-      data: {
-        formId,
-        userId,
-        res,
-      },
-    };
+    try {
+      const form = await this.validateVisibility(formId, userId);
+
+      const csv = await this.generateCSV(form, formId);
+
+      // Set response headers
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=${form.title}.csv`,
+      );
+
+      // Send response
+
+      res.status(200).send(csv);
+    } catch (error) {
+      console.log(error.response);
+
+      throw new BadRequestException(
+        error.message ? error.message : 'Failed to export form as CSV',
+      );
+    }
   }
 
   /*  ======================================================
@@ -1141,5 +1155,85 @@ export class FormService {
     }
   }
 
-  async generateCSV() {}
+  async generateCSV(
+    form: Form & {
+      Question: (QuestionPrisma & {
+        Radio: Radio;
+        Checkbox: Checkbox;
+        Answer: Answer[];
+      })[];
+      Section: Section[];
+    },
+    formId: string,
+  ) {
+    const header = form.Question.map((question) => ({
+      id: question.questionId,
+      title: question.question,
+    }));
+
+    console.log(header);
+
+    // Retrieve all respondent ID
+    const respondentIds = await this.prismaService.participation.findMany({
+      where: {
+        formId: formId,
+        isCompleted: true,
+      },
+      select: {
+        respondentId: true,
+      },
+    });
+
+    const rows = [];
+
+    // ITerate through respondentID and get their answer
+
+    for (const respondentId of respondentIds) {
+      const answers = await this.prismaService.answer.findMany({
+        where: {
+          respondentId: respondentId.respondentId,
+          formId: formId,
+        },
+      });
+
+      const row = {};
+
+      // Initialize all question with empty string
+
+      form.Question.forEach((question) => {
+        row[question.questionId] = '';
+      });
+
+      answers.forEach((answer) => {
+        const typedAnswer = answer.answer as string[] | { answer: string };
+
+        row[answer.questionId] = (
+          typedAnswer as {
+            answer?: { answer?: string };
+          }
+        ).answer
+          ? (
+              typedAnswer as {
+                answer?: { answer?: string };
+              }
+            ).answer
+          : (typedAnswer as string[]).join(', ');
+      });
+
+      rows.push(row);
+    }
+
+    const fields = header.map((h) => ({
+      label: h.title,
+      value: h.id.toString(),
+    }));
+
+    const json2csvParser = new Parser({
+      fields,
+    });
+
+    const csv = json2csvParser.parse(rows);
+
+    return csv;
+  }
 }
