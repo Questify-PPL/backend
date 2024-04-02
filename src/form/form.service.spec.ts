@@ -8,7 +8,7 @@ describe('FormService', () => {
   let prismaService: PrismaService;
 
   const dummyForm = {
-    title: '',
+    title: 'testForm',
     prize: 20000,
     creatorId: 'userId',
     prizeType: 'LUCKY',
@@ -16,6 +16,7 @@ describe('FormService', () => {
     Question: [
       {
         questionType: 'RADIO',
+        questionId: 1,
         isRequired: true,
         question: 'Question 1',
         Radio: {
@@ -37,6 +38,7 @@ describe('FormService', () => {
       },
       {
         questionType: 'CHECKBOX',
+        questionId: 2,
         sectionId: 1,
         isRequired: true,
         question: 'Question 2',
@@ -59,6 +61,7 @@ describe('FormService', () => {
       },
       {
         questionType: 'TEXT',
+        questionId: 3,
         sectionId: 1,
         isRequired: true,
         question: 'Question 3',
@@ -81,6 +84,7 @@ describe('FormService', () => {
       },
       {
         questionType: 'RADIO',
+        questionId: 4,
         sectionId: 1,
         isRequired: true,
         question: 'Question 2',
@@ -207,6 +211,7 @@ describe('FormService', () => {
             answer: {
               upsert: jest.fn().mockResolvedValue({}),
               count: jest.fn().mockResolvedValue(0),
+              findMany: jest.fn().mockResolvedValue([]),
             },
             $transaction: jest.fn(),
           },
@@ -1378,5 +1383,157 @@ describe('FormService', () => {
     await expect(service.getAllIndividual('formId', userId)).rejects.toThrow(
       'Form is not published',
     );
+  });
+
+  it('should return success when form is exported as csv', async () => {
+    const userId = 'userId';
+    const formId = 'formId';
+
+    const mockResponse = {
+      setHeader: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...dummyForm,
+      isPublished: true,
+    } as any);
+
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue([
+      {
+        respondentId: 'userId',
+      },
+    ] as any);
+
+    jest.spyOn(prismaService.answer, 'findMany').mockResolvedValue([
+      {
+        respondentId: 'userId',
+        answer: ['A'],
+      },
+      {
+        respondentId: 'userId',
+        answer: {
+          answer: 'B',
+        },
+      },
+      {
+        respondentId: 'userId',
+        answer: ['A', 'B'],
+      },
+    ] as any);
+
+    await service.exportFormAsCSV(formId, userId, mockResponse as any);
+
+    expect(mockResponse.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'text/csv',
+    );
+    expect(mockResponse.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      `attachment; filename=testForm.csv`,
+    );
+    expect(mockResponse.status).toHaveBeenCalledWith(200);
+    expect(mockResponse.send).toHaveBeenCalled();
+  });
+
+  it('should throw an error if form is not found in exportFormAsCSV', async () => {
+    const userId = 'userId';
+    const formId = 'formId';
+
+    const mockResponse = {
+      setHeader: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null as any);
+
+    await expect(
+      service.exportFormAsCSV(formId, userId, mockResponse as any),
+    ).rejects.toThrow('Form not found');
+  });
+
+  it('should throw an error if user is not the creator of the form in exportFormAsCSV', async () => {
+    const userId = 'userId';
+    const formId = 'formId';
+
+    const mockResponse = {
+      setHeader: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'otherUserId' } as any);
+
+    await expect(
+      service.exportFormAsCSV(formId, userId, mockResponse as any),
+    ).rejects.toThrow('User is not authorized to view form summary');
+  });
+
+  it('should throw an error if form is not published in exportFormAsCSV', async () => {
+    const userId = 'userId';
+    const formId = 'formId';
+
+    const mockResponse = {
+      setHeader: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId', isPublished: false } as any);
+
+    await expect(
+      service.exportFormAsCSV(formId, userId, mockResponse as any),
+    ).rejects.toThrow('Form is not published');
+  });
+
+  it('should throw an error if csv failed to be generated', async () => {
+    const userId = 'userId';
+    const formId = 'formId';
+
+    const mockResponse = {
+      setHeader: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...dummyForm,
+      isPublished: true,
+    } as any);
+
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue([
+      {
+        respondentId: 'userId',
+      },
+    ] as any);
+
+    jest.spyOn(prismaService.answer, 'findMany').mockResolvedValue([
+      {
+        respondentId: 'userId',
+        answer: ['A'],
+      },
+      {
+        respondentId: 'userId',
+        answer: {
+          answer: 'B',
+        },
+      },
+      {
+        respondentId: 'userId',
+        answer: ['A', 'B'],
+      },
+    ] as any);
+
+    jest.spyOn(service, 'generateCSV').mockRejectedValue(new Error());
+
+    await expect(
+      service.exportFormAsCSV(formId, userId, mockResponse as any),
+    ).rejects.toThrow('Failed to export form as CSV');
   });
 });

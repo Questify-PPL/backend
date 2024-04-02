@@ -17,6 +17,7 @@ import {
   UpdateParticipationDTO,
 } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Response } from 'express';
 
 @Injectable()
 export class FormService {
@@ -457,6 +458,18 @@ export class FormService {
       statusCode: 200,
       message: 'Successfully get all individual',
       data: allIndividuals.map((individual) => individual.respondentId),
+    };
+  }
+
+  async exportFormAsCSV(formId: string, userId: string, res: Response) {
+    return {
+      statusCode: 200,
+      message: 'Successfully export form as CSV',
+      data: {
+        formId,
+        userId,
+        res,
+      },
     };
   }
 
@@ -1127,4 +1140,6 @@ export class FormService {
       acc.push(toPut);
     }
   }
+
+  async generateCSV() {}
 }

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FormController } from './form.controller';
 import { FormService } from './form.service';
 import { PrizeType } from '@prisma/client';
+import { response } from 'express';
 
 describe('FormController', () => {
   let controller: FormController;
@@ -27,6 +28,7 @@ describe('FormController', () => {
             getFormSummary: jest.fn().mockResolvedValue({}),
             getAllQuestionsAnswer: jest.fn().mockResolvedValue({}),
             getAllIndividual: jest.fn().mockResolvedValue({}),
+            exportFormAsCSV: jest.fn().mockResolvedValue({}),
           },
         },
       ],
@@ -157,5 +159,16 @@ describe('FormController', () => {
     const formId = 'formId';
     const userId = 'userId';
     expect(await controller.getAllIndividual(formId, userId)).toEqual({});
+  });
+
+  it('should call formService.exportDataToCSV with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+
+    const expressResponse = response;
+
+    expect(
+      await controller.exportFormAsCSV(formId, userId, expressResponse),
+    ).toEqual({});
   });
 });

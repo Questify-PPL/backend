@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ import { CurrentUser, Roles } from 'src/decorator';
 import { JwtAuthGuard, RolesGuard } from 'src/guard';
 import { FormService } from './form.service';
 import { CreateFormDTO, UpdateFormDTO, UpdateParticipationDTO } from 'src/dto';
+import { Response } from 'express';
 
 @ApiTags('form')
 @Controller('form')
@@ -149,5 +151,15 @@ export class FormController {
     @CurrentUser('id') userId: string,
   ) {
     return this.formService.getAllIndividual(formId, userId);
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/export')
+  exportFormAsCSV(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+    @Res() res: Response,
+  ) {
+    return this.formService.exportFormAsCSV(formId, userId, res);
   }
 }
