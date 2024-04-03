@@ -29,7 +29,7 @@ export class FormService {
       ======================================================
   */
 
-  async getAllAvailableForm() {
+  async getAllAvailableForm(userId: string) {
     const forms = await this.prismaService.form.findMany({
       where: {
         isPublished: true,
@@ -40,10 +40,25 @@ export class FormService {
       },
     });
 
+    const participatingForms = await this.prismaService.participation.findMany({
+      where: {
+        respondentId: userId,
+      },
+      select: {
+        formId: true,
+      },
+    });
+
+    const filteredForms = forms.filter((form) => {
+      return !participatingForms.some(
+        (participatingForm) => participatingForm.formId === form.id,
+      );
+    });
+
     return {
       statusCode: 200,
       message: 'Successfully get all available form',
-      data: forms,
+      data: filteredForms,
     };
   }
 
