@@ -29,8 +29,8 @@ enum ExchangeStatus {
 }
 
 model User {
-  id                  String      @id @default(uuid())
-  email               String      @unique
+  id                  String       @id @default(uuid())
+  email               String       @unique
   roles               Role[]
   password            String?
   ssoUsername         String?
@@ -40,16 +40,16 @@ model User {
   gender              String?
   companyName         String?
   birthDate           DateTime?
-  credit              Int?
-  isVerified          Boolean     @default(false)
-  isBlocked           Boolean     @default(false)
-  hasCompletedProfile Boolean     @default(false)
+  credit              Int          @default(0)
+  isVerified          Boolean      @default(false)
+  isBlocked           Boolean      @default(false)
+  hasCompletedProfile Boolean      @default(false)
   Admin               Admin?
   Creator             Creator?
   Respondent          Respondent?
   Payment             Payment[]
-  ReportTo            Report[]    @relation("to")
-  ReportFrom          Report[]    @relation("from")
+  ReportTo            Report[]     @relation("to")
+  ReportFrom          Report[]     @relation("from")
   Voucher             Voucher[]
   Withdrawal          Withdrawal[]
 }
@@ -289,14 +289,14 @@ model InvoiceTopup {
 
   creatorName String
 
-  amount           Int      
-  status           InvoiceStatus @default(PENDING)
-  buktiPembayaranUrl String? 
-  createdAt        DateTime @default(now())
-  validatedAt      DateTime? 
-  payment String
-  exchange String
-  accountNumber String?
+  amount             Int
+  status             InvoiceStatus @default(PENDING)
+  buktiPembayaranUrl String?
+  createdAt          DateTime      @default(now())
+  validatedAt        DateTime?
+  payment            String
+  exchange           String
+  accountNumber      String?
 }
 
 model Withdrawal {
@@ -306,8 +306,8 @@ model Withdrawal {
   user     User   @relation(fields: [userId], references: [id])
   userName String
 
-  status      ExchangeStatus   @default(PENDING)
-  createdAt   DateTime         @default(now())
+  status      ExchangeStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
   validatedAt DateTime?
 
   exchange      String @default("Withdraw")
