@@ -64,6 +64,7 @@ model Creator {
   user   User   @relation(fields: [userId], references: [id])
 
   emailNotificationActive Boolean        @default(true)
+  emptyForms              Int            @default(0)
   Form                    Form[]
   InvoiceTopup            InvoiceTopup[]
 }
@@ -80,15 +81,15 @@ model Respondent {
 model Payment {
   id     String @id @default(uuid())
   itemId Int
-  item   Item   @relation(fields: [itemId], references: [id])
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   totalPayment Int
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  Voucher   Voucher? @relation(fields: [voucherId], references: [id])
+  Voucher   Voucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
   voucherId String?
 }
 
@@ -104,9 +105,9 @@ model Voucher {
   usedAt    DateTime?
 
   userId     String?
-  usedBy     User?   @relation(fields: [userId], references: [id])
+  usedBy     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   usedItemId Int?
-  usedItem   Item?   @relation(fields: [usedItemId], references: [id])
+  usedItem   Item?   @relation(fields: [usedItemId], references: [id], onDelete: SetNull)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
