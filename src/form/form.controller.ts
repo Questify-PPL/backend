@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ import { CurrentUser, Roles } from 'src/decorator';
 import { JwtAuthGuard, RolesGuard } from 'src/guard';
 import { FormService } from './form.service';
 import { CreateFormDTO, UpdateFormDTO, UpdateParticipationDTO } from 'src/dto';
+import { Response } from 'express';
 
 @ApiTags('form')
 @Controller('form')
@@ -24,14 +26,17 @@ export class FormController {
 
   @Get('/')
   @Roles(Role.RESPONDENT)
-  getAllAvailableForm() {
-    return this.formService.getAllAvailableForm();
+  getAllAvailableForm(@CurrentUser('id') userId: string) {
+    return this.formService.getAllAvailableForm(userId);
   }
 
   @Get('/creator')
-  @Roles(Role.RESPONDENT, Role.CREATOR)
-  getOwnedForm(@CurrentUser('id') userId: string) {
-    return this.formService.getOwnedForm(userId);
+  @Roles(Role.CREATOR)
+  getOwnedForm(
+    @CurrentUser('id') userId: string,
+    @Query('type') type?: string,
+  ) {
+    return this.formService.getOwnedForm(userId, type);
   }
 
   @Roles(Role.RESPONDENT)
@@ -78,6 +83,16 @@ export class FormController {
     return this.formService.deleteForm(formId, userId);
   }
 
+  @Delete('/:formId/section/:sectionId')
+  @Roles(Role.CREATOR)
+  deleteSection(
+    @Param('formId') formId: string,
+    @Param('sectionId') sectionId: number,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.deleteSection(formId, sectionId, userId);
+  }
+
   @Delete('/:formId/question/:questionId')
   @Roles(Role.CREATOR)
   deleteQuestion(
@@ -109,5 +124,42 @@ export class FormController {
       userId,
       updateParticipationDTO,
     );
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/statistics')
+  getFormSummary(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getFormSummary(formId, userId);
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/questions')
+  getAllQuestionsAnswer(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getAllQuestionsAnswer(formId, userId);
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/individual')
+  getAllIndividual(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.formService.getAllIndividual(formId, userId);
+  }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/export')
+  exportFormAsCSV(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+    @Res() res: Response,
+  ) {
+    return this.formService.exportFormAsCSV(formId, userId, res);
   }
 }

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FormController } from './form.controller';
 import { FormService } from './form.service';
 import { PrizeType } from '@prisma/client';
+import { response } from 'express';
 
 describe('FormController', () => {
   let controller: FormController;
@@ -20,9 +21,14 @@ describe('FormController', () => {
             createForm: jest.fn().mockResolvedValue({}),
             updateForm: jest.fn().mockResolvedValue({}),
             deleteForm: jest.fn().mockResolvedValue({}),
+            deleteSection: jest.fn().mockResolvedValue({}),
             deleteQuestion: jest.fn().mockResolvedValue({}),
             participateOnQuestionnaire: jest.fn().mockResolvedValue({}),
             updateParticipation: jest.fn().mockResolvedValue({}),
+            getFormSummary: jest.fn().mockResolvedValue({}),
+            getAllQuestionsAnswer: jest.fn().mockResolvedValue({}),
+            getAllIndividual: jest.fn().mockResolvedValue({}),
+            exportFormAsCSV: jest.fn().mockResolvedValue({}),
           },
         },
       ],
@@ -36,7 +42,7 @@ describe('FormController', () => {
   });
 
   it('should call formService.getAllAvailableForm with the correct arguments', async () => {
-    expect(await controller.getAllAvailableForm()).toEqual({});
+    expect(await controller.getAllAvailableForm('userId')).toEqual({});
   });
 
   it('should call formService.getFormById with the correct arguments', async () => {
@@ -93,6 +99,16 @@ describe('FormController', () => {
     expect(await controller.deleteForm(formId, userId)).toEqual({});
   });
 
+  it('should call formService.deleteSection with the correct arguments', async () => {
+    const formId = 'formId';
+    const sectionId = 1;
+    const userId = 'userId';
+
+    expect(await controller.deleteSection(formId, sectionId, userId)).toEqual(
+      {},
+    );
+  });
+
   it('should call formService.deleteQuestion with the correct arguments', async () => {
     const formId = 'formId';
     const questionId = 1;
@@ -124,6 +140,35 @@ describe('FormController', () => {
         userId,
         updateParticipationDTO,
       ),
+    ).toEqual({});
+  });
+
+  it('should call formService.getFormSummary with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    expect(await controller.getFormSummary(formId, userId)).toEqual({});
+  });
+
+  it('should call formService.getAllQuestionsAnswer with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    expect(await controller.getAllQuestionsAnswer(formId, userId)).toEqual({});
+  });
+
+  it('should call formService.getAllIndividualAnswer with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    expect(await controller.getAllIndividual(formId, userId)).toEqual({});
+  });
+
+  it('should call formService.exportDataToCSV with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+
+    const expressResponse = response;
+
+    expect(
+      await controller.exportFormAsCSV(formId, userId, expressResponse),
     ).toEqual({});
   });
 });
