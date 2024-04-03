@@ -97,19 +97,19 @@ enum ItemCategory {
 }
 
 model Voucher {
-  id         String    @id @default(uuid())
-  discount   Int
-  expiredAt  DateTime
-  isUsed     Boolean   @default(false)
-  usedAt     DateTime?
-  usedBy     User?     @relation(fields: [userId], references: [id])
+  id        String    @id @default(uuid())
+  discount  Int
+  expiredAt DateTime
+  isUsed    Boolean   @default(false)
+  usedAt    DateTime?
+
+  userId     String?
+  usedBy     User?   @relation(fields: [userId], references: [id])
   usedItemId Int?
-  usedItem   Item?     @relation(fields: [itemId], references: [id])
+  usedItem   Item?   @relation(fields: [usedItemId], references: [id])
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  userId    String?
-  itemId    Int?
   Payment   Payment[]
 }
 
