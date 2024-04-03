@@ -127,7 +127,8 @@ export class FormService {
     userId: string,
     updateFormDTO: UpdateFormDTO,
   ) {
-    const { formQuestions, isPublished, isDraft, ...rest } = updateFormDTO;
+    const { formQuestions, isPublished, isDraft, endedAt, ...rest } =
+      updateFormDTO;
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
@@ -153,6 +154,9 @@ export class FormService {
         ...(isDraft && {
           isDraft: isDraft,
           isPublished: !isDraft,
+        }),
+        ...(endedAt && {
+          endedAt: endedAt,
         }),
       },
       include: {

@@ -605,6 +605,52 @@ describe('FormService', () => {
     });
   });
 
+  it('should call prismaService.form.update with the correct arguments to set ended form date', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.form, 'update')
+      .mockResolvedValue(dummyForm as any);
+
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      isDraft: true,
+      endedAt: new Date(),
+    };
+
+    expect(
+      await service.updateForm('formId', 'userId', updateDTO as any),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update form',
+      data: expect.any(Object),
+    });
+  });
+
+  it('handles errors gracefully', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    const updateFormDTO = { isPublished: true };
+    const errorMessage = 'Database update failed';
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    prismaService.form.update = jest
+      .fn()
+      .mockRejectedValueOnce(new Error(errorMessage));
+
+    await expect(
+      service.updateForm(formId, userId, updateFormDTO as any),
+    ).rejects.toThrow(errorMessage);
+  });
+
   it('should call prismaService.form.update with the correct arguments to make form published', async () => {
     jest
       .spyOn(prismaService.form, 'findUnique')
