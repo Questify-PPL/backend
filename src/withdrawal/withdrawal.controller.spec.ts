@@ -138,7 +138,9 @@ describe('WithdrawalController', () => {
 
       await controller.getAllWithdrawalsOnValidation();
 
-      expect(withdrawalService.getAllWithdrawalsOnValidation).toHaveBeenCalledWith();
+      expect(
+        withdrawalService.getAllWithdrawalsOnValidation,
+      ).toHaveBeenCalledWith();
     });
 
     it('should return all pending withdrawals', async () => {
@@ -233,9 +235,9 @@ describe('WithdrawalController', () => {
         .spyOn(withdrawalService, 'createWithdrawal')
         .mockImplementation(async () => result);
 
-      expect(await controller.createWithdrawal(createWithdrawalDto, mockedUser)).toBe(
-        result,
-      );
+      expect(
+        await controller.createWithdrawal(createWithdrawalDto, mockedUser),
+      ).toBe(result);
     });
 
     it('should handle invalid amount when withdrawal creation', async () => {
@@ -284,15 +286,17 @@ describe('WithdrawalController', () => {
         .spyOn(withdrawalService, 'validateWithdrawal')
         .mockImplementation(async () => result);
 
-      expect(await controller.validateWithdrawal(validateWithdrawalDto, '1')).toBe(
-        result,
-      );
+      expect(
+        await controller.validateWithdrawal(validateWithdrawalDto, '1'),
+      ).toBe(result);
     });
 
     it('should handle invalid withdrawal id when validation', async () => {
       jest
         .spyOn(withdrawalService, 'validateWithdrawal')
-        .mockRejectedValue(new NotFoundException('The withdrawal is not found'));
+        .mockRejectedValue(
+          new NotFoundException('The withdrawal is not found'),
+        );
 
       await expect(
         controller.validateWithdrawal(validateWithdrawalDto, '1'),
@@ -308,7 +312,9 @@ describe('WithdrawalController', () => {
 
       await expect(
         controller.validateWithdrawal(validateWithdrawalDto, '1'),
-      ).rejects.toThrow(new BadRequestException('The withdrawal has already been validated'));
+      ).rejects.toThrow(
+        new BadRequestException('The withdrawal has already been validated'),
+      );
     });
   });
 });

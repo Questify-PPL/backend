@@ -164,7 +164,7 @@ describe('EmailService', () => {
       isBlocked: false,
       hasCompletedProfile: true,
     };
-    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' }
+    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' };
 
     mailerService.sendMail = jest.fn().mockResolvedValue(true);
 
@@ -197,10 +197,11 @@ describe('EmailService', () => {
 
   it('should throw an error if the user is null', async () => {
     const mockedUser = null;
-    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' }
+    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' };
 
-    await expect(service.sendContactData(mockedUser, contactDataDTO))
-      .rejects.toThrow(new BadRequestException('Invalid User'));
+    await expect(
+      service.sendContactData(mockedUser, contactDataDTO),
+    ).rejects.toThrow(new BadRequestException('Invalid User'));
   });
 
   it('should throw an error if the user has no name', async () => {
@@ -225,9 +226,10 @@ describe('EmailService', () => {
       isBlocked: false,
       hasCompletedProfile: true,
     };
-    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' }
+    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' };
 
-    await expect(service.sendContactData(mockedUser, contactDataDTO))
-      .rejects.toThrow(new BadRequestException('Invalid User'));
+    await expect(
+      service.sendContactData(mockedUser, contactDataDTO),
+    ).rejects.toThrow(new BadRequestException('Invalid User'));
   });
 });

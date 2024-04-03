@@ -53,6 +53,9 @@ export class WithdrawalController {
     @Body() validateWithdrawalDto: ValidateWithdrawalDto,
     @Param('withdrawalId') withdrawalId: string,
   ) {
-    return this.withdrawalService.validateWithdrawal(withdrawalId, validateWithdrawalDto);
+    return this.withdrawalService.validateWithdrawal(
+      withdrawalId,
+      validateWithdrawalDto,
+    );
   }
 }

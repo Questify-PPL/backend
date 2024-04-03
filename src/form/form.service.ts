@@ -38,12 +38,25 @@ export class FormService {
       },
     });
 
-    console.log(userId);
+    const participatingForms = await this.prismaService.participation.findMany({
+      where: {
+        respondentId: userId,
+      },
+      select: {
+        formId: true,
+      },
+    });
+
+    const filteredForms = forms.filter((form) => {
+      return !participatingForms.some(
+        (participatingForm) => participatingForm.formId === form.id,
+      );
+    });
 
     return {
       statusCode: 200,
       message: 'Successfully get all available form',
-      data: forms,
+      data: filteredForms,
     };
   }
 
