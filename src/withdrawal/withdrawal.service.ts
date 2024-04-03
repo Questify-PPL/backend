@@ -104,10 +104,14 @@ export class WithdrawalService {
     }
 
     if (withdrawal.status !== ExchangeStatus.PENDING) {
-      throw new BadRequestException('The withdrawal has already been validated');
+      throw new BadRequestException(
+        'The withdrawal has already been validated',
+      );
     }
 
-    const status = isApproved ? ExchangeStatus.APPROVED : ExchangeStatus.REJECTED;
+    const status = isApproved
+      ? ExchangeStatus.APPROVED
+      : ExchangeStatus.REJECTED;
 
     if (isApproved) {
       await this.subtractCreditsUser(withdrawal);

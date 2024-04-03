@@ -40,7 +40,7 @@ describe('FormController', () => {
   });
 
   it('should call formService.getAllAvailableForm with the correct arguments', async () => {
-    expect(await controller.getAllAvailableForm()).toEqual({});
+    expect(await controller.getAllAvailableForm('userId')).toEqual({});
   });
 
   it('should call formService.getFormById with the correct arguments', async () => {

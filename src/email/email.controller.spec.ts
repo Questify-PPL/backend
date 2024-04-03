@@ -88,7 +88,7 @@ describe('EmailController', () => {
       isBlocked: false,
       hasCompletedProfile: true,
     };
-    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' }
+    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' };
 
     jest.spyOn(emailService, 'sendContactData').mockImplementation();
 
@@ -102,9 +102,11 @@ describe('EmailController', () => {
 
   it('should handle errors when the current user is invalid', async () => {
     const mockedUser = null;
-    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' }
+    const contactDataDTO = { subject: 'Test Subject', message: 'Test Message' };
 
-    jest.spyOn(emailService, 'sendContactData').mockRejectedValue(new BadRequestException('Invalid User'));
+    jest
+      .spyOn(emailService, 'sendContactData')
+      .mockRejectedValue(new BadRequestException('Invalid User'));
 
     await expect(
       controller.sendContactData(contactDataDTO, mockedUser),
