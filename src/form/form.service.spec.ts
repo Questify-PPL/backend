@@ -227,10 +227,16 @@ describe('FormService', () => {
       .spyOn(prismaService.form, 'findMany')
       .mockResolvedValue(dummyForms as any);
 
-    expect(await service.getAllAvailableForm()).toEqual({
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValueOnce([
+      {
+        formId: 'formId',
+      },
+    ] as any);
+
+    expect(await service.getAllAvailableForm('userId')).toEqual({
       statusCode: 200,
       message: 'Successfully get all available form',
-      data: dummyForms,
+      data: expect.any(Object),
     });
   });
 

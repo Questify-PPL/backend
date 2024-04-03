@@ -24,8 +24,8 @@ export class FormController {
 
   @Get('/')
   @Roles(Role.RESPONDENT)
-  getAllAvailableForm() {
-    return this.formService.getAllAvailableForm();
+  getAllAvailableForm(@CurrentUser('id') userId: string) {
+    return this.formService.getAllAvailableForm(userId);
   }
 
   @Get('/creator')

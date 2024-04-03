@@ -27,7 +27,7 @@ export class FormService {
       ======================================================
   */
 
-  async getAllAvailableForm() {
+  async getAllAvailableForm(userId: string) {
     const forms = await this.prismaService.form.findMany({
       where: {
         isPublished: true,
@@ -37,6 +37,8 @@ export class FormService {
         },
       },
     });
+
+    console.log(userId);
 
     return {
       statusCode: 200,
