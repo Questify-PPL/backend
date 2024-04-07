@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Item" ADD COLUMN     "emptyForms" INTEGER NOT NULL DEFAULT 0;

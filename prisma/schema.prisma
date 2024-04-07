@@ -64,6 +64,7 @@ model Creator {
   user   User   @relation(fields: [userId], references: [id])
 
   emailNotificationActive Boolean        @default(true)
+  emptyForms              Int            @default(0)
   Form                    Form[]
   InvoiceTopup            InvoiceTopup[]
 }
@@ -80,15 +81,15 @@ model Respondent {
 model Payment {
   id     String @id @default(uuid())
   itemId Int
-  item   Item   @relation(fields: [itemId], references: [id])
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   totalPayment Int
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  Voucher   Voucher? @relation(fields: [voucherId], references: [id])
+  Voucher   Voucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
   voucherId String?
 }
 
@@ -97,19 +98,19 @@ enum ItemCategory {
 }
 
 model Voucher {
-  id         String    @id @default(uuid())
-  discount   Int
-  expiredAt  DateTime
-  isUsed     Boolean   @default(false)
-  usedAt     DateTime?
-  usedBy     User?     @relation(fields: [userId], references: [id])
+  id        String    @id @default(uuid())
+  discount  Int
+  expiredAt DateTime
+  isUsed    Boolean   @default(false)
+  usedAt    DateTime?
+
+  userId     String?
+  usedBy     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   usedItemId Int?
-  usedItem   Item?     @relation(fields: [itemId], references: [id])
+  usedItem   Item?   @relation(fields: [usedItemId], references: [id], onDelete: SetNull)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  userId    String?
-  itemId    Int?
   Payment   Payment[]
 }
 
@@ -120,6 +121,7 @@ model Item {
   category                ItemCategory @default(BASIC_PLAN)
   advertisedOriginalPrice Int?
   description             String
+  emptyForms              Int          @default(0)
   Payment                 Payment[]
   Voucher                 Voucher[]
 }
