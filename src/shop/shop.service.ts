@@ -44,7 +44,14 @@ export class ShopService {
   async buyItem(userId: string, buyItemDTO: BuyItemDTO) {
     const { itemId, voucherId } = buyItemDTO;
 
-    const item = await this.validateItem(itemId);
+    const [user, item] = await Promise.all([
+      await this.prismaService.user.findUnique({
+        where: {
+          id: userId,
+        },
+      }),
+      await this.validateItem(itemId),
+    ]);
 
     const updateUserAndCreatePayment = await this.prismaService.$transaction(
       async (ctx) => {
@@ -59,12 +66,17 @@ export class ShopService {
           );
         }
 
+        if (user.credit < totalPrice) {
+          throw new BadRequestException('Insufficient credit');
+        }
+
         const updateUserAndCreatePayment =
           await this.updateUserAndCreatePayment(
             userId,
             itemId,
             voucherId,
             totalPrice,
+            item.emptyForms,
             ctx,
           );
 
@@ -137,30 +149,42 @@ export class ShopService {
     itemId: number,
     voucherId: string,
     totalPrice: number,
+    emptyForms: number,
     ctx: Omit<
       PrismaClient<Prisma.PrismaClientOptions, never, DefaultArgs>,
       '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
     >,
   ) {
-    const user = await ctx.user.update({
-      data: {
-        credit: {
-          decrement: totalPrice,
+    const [user, _creator, payment] = await Promise.all([
+      await ctx.user.update({
+        data: {
+          credit: {
+            decrement: totalPrice,
+          },
         },
-      },
-      where: {
-        id: userId,
-      },
-    });
-
-    const payment = await ctx.payment.create({
-      data: {
-        userId: userId,
-        itemId: itemId,
-        ...(voucherId && { voucherId: voucherId }),
-        totalPayment: totalPrice,
-      },
-    });
+        where: {
+          id: userId,
+        },
+      }),
+      await ctx.creator.update({
+        data: {
+          emptyForms: {
+            increment: emptyForms,
+          },
+        },
+        where: {
+          userId: userId,
+        },
+      }),
+      await ctx.payment.create({
+        data: {
+          userId: userId,
+          itemId: itemId,
+          ...(voucherId && { voucherId: voucherId }),
+          totalPayment: totalPrice,
+        },
+      }),
+    ]);
 
     return {
       ...payment,
