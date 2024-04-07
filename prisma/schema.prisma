@@ -121,6 +121,7 @@ model Item {
   category                ItemCategory @default(BASIC_PLAN)
   advertisedOriginalPrice Int?
   description             String
+  emptyForms              Int          @default(0)
   Payment                 Payment[]
   Voucher                 Voucher[]
 }

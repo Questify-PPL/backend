@@ -115,24 +115,28 @@ async function main() {
           price: 25000,
           description: 'Get 1 Form',
           advertisedOriginalPrice: 27000,
+          emptyForms: 1,
         },
         {
           title: '3 Forms',
           price: 70000,
           description: 'Get 3 Forms',
           advertisedOriginalPrice: 81000,
+          emptyForms: 3,
         },
         {
           title: '5 Forms',
           price: 110000,
           description: 'Get 5 Forms',
           advertisedOriginalPrice: 135000,
+          emptyForms: 5,
         },
         {
           title: '10 Forms',
           price: 200000,
           description: 'Get 10 Forms',
           advertisedOriginalPrice: 270000,
+          emptyForms: 10,
         },
       ],
     });

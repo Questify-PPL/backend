@@ -1190,8 +1190,6 @@ export class FormService {
       title: question.question,
     }));
 
-    console.log(header);
-
     // Retrieve all respondent ID
     const respondentIds = await this.prismaService.participation.findMany({
       where: {
