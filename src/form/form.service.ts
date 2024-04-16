@@ -471,13 +471,28 @@ export class FormService {
       },
       select: {
         respondentId: true,
+        respondent: {
+          select: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
     });
 
     return {
       statusCode: 200,
       message: 'Successfully get all individual',
-      data: allIndividuals.map((individual) => individual.respondentId),
+      data: allIndividuals.map((individual) => ({
+        respondentId: individual.respondentId,
+        email: individual.respondent.user.email,
+        name: `${individual.respondent.user.firstName} ${individual.respondent.user.lastName}`,
+      })),
     };
   }
 
@@ -511,14 +526,15 @@ export class FormService {
     userId: string,
     respondentId: string,
   ) {
+    const [_, form] = await Promise.all([
+      await this.validateVisibility(formId, userId),
+      await this.getFormById(formId, 'respondent', respondentId),
+    ]);
+
     return {
       statusCode: 200,
       message: 'Successfully get individual response',
-      data: {
-        formId,
-        userId,
-        respondentId,
-      },
+      data: form.data.questions,
     };
   }
 
