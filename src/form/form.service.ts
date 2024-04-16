@@ -506,6 +506,22 @@ export class FormService {
     }
   }
 
+  async getIndividualResponse(
+    formId: string,
+    userId: string,
+    respondentId: string,
+  ) {
+    return {
+      statusCode: 200,
+      message: 'Successfully get individual response',
+      data: {
+        formId,
+        userId,
+        respondentId,
+      },
+    };
+  }
+
   /*  ======================================================
         Utils
       ======================================================
