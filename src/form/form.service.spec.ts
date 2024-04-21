@@ -404,6 +404,70 @@ describe('FormService', () => {
     });
   });
 
+  it('should cover the case where form has opening section', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...{
+        ...dummyForm,
+        Section: [
+          ...dummyForm.Section,
+          {
+            formId: '9cbfa361-505f-409c-8991-4d7d1a6e84b3',
+            sectionId: 67,
+            name: 'Opening',
+            description:
+              'Hello! I’m Ruben. I’m a Scientist at Oreo. Through this questionnaire I’d like to know consumer’s preferences for Oreo flavors and packaging.',
+            questions: [],
+          },
+        ],
+      },
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
+    } as any);
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: userId,
+      isCompleted: false,
+    } as any);
+
+    expect(await service.getFormById('formId', 'respondent', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should cover the case where form has closing section', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...{
+        ...dummyForm,
+        Section: [
+          ...dummyForm.Section,
+          {
+            formId: '9cbfa361-505f-409c-8991-4d7d1a6e84b3',
+            sectionId: 71,
+            name: 'Ending',
+            description:
+              'Thank you for participating! Your insights are valuable. I hope you don’t mind joining future questionnaires.',
+            questions: [],
+          },
+        ],
+      },
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
+    } as any);
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: userId,
+      isCompleted: false,
+    } as any);
+
+    expect(await service.getFormById('formId', 'respondent', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.any(Object),
+    });
+  });
+
   it('should throw an error if prizeType is LUCKY and maxWinner is not provided in create form', async () => {
     const createDTO = {
       title: '',
