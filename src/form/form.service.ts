@@ -957,6 +957,9 @@ export class FormService {
     userId?: string,
     removeAnswer = true,
   ) {
+    const openingSection = form.Section.find(({ name }) => name === 'Opening');
+    const endingSection = form.Section.find(({ name }) => name === 'Ending');
+
     const groupQuestionBySectionIfExist = form.Question.reduce(
       (acc, question) => {
         const questionWithChoice = this.excludeKeys(
@@ -998,6 +1001,26 @@ export class FormService {
       [],
     );
 
+    const groupedQuestion = [
+      openingSection &&
+        this.excludeKeys(
+          {
+            ...openingSection,
+            questions: [],
+          },
+          ['formId'],
+        ),
+      ...groupQuestionBySectionIfExist,
+      endingSection &&
+        this.excludeKeys(
+          {
+            ...endingSection,
+            questions: [],
+          },
+          ['formId'],
+        ),
+    ];
+
     let participation;
 
     if (userId) {
@@ -1014,7 +1037,7 @@ export class FormService {
     return this.excludeKeys(
       {
         ...form,
-        questions: groupQuestionBySectionIfExist,
+        questions: groupedQuestion,
         ...(participation && {
           canRespond:
             !participation.isCompleted &&
