@@ -11,6 +11,7 @@ import { QuestionnaireCreationModule } from './questionnaire-creation/questionna
 import { ShopModule } from './shop/shop.module';
 import { TopupModule } from './topup/topup.module';
 import { WithdrawalModule } from './withdrawal/withdrawal.module';
+import { PityModule } from './pity/pity.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { WithdrawalModule } from './withdrawal/withdrawal.module';
     ShopModule,
     TopupModule,
     WithdrawalModule,
+    PityModule,
   ],
   controllers: [AppController],
   providers: [AppService],
