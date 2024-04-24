@@ -1549,7 +1549,7 @@ describe('FormService', () => {
       'Content-Disposition',
       `attachment; filename=testForm.csv`,
     );
-    expect(mockResponse.status).toHaveBeenCalledWith(200);
+    expect(mockResponse.status).toHaveBeenCalledWith(201);
     expect(mockResponse.send).toHaveBeenCalled();
   });
 
