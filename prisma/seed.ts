@@ -20,6 +20,7 @@ async function main() {
       password: '$2a$10$RErow0.VS.4ZKWF9hpvooerm/SKYDyOIqMTLGqQP/0QR6xtOLykPC', // admin
       roles: ['ADMIN'],
       isVerified: true,
+      hasCompletedProfile: true,
     },
   });
 

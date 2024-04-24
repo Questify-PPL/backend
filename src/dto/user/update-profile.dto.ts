@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsDate,
   IsString,
+  IsBoolean,
   MinLength,
   MaxLength,
   MaxDate,
@@ -50,4 +51,8 @@ export class UpdateProfileDTO {
     message: 'Birth date must be in the past',
   })
   birthDate?: Date;
+
+  @IsOptional()
+  @IsBoolean()
+  hasCompletedProfile?: boolean;
 }
