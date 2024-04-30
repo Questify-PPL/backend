@@ -12,6 +12,7 @@ import { ShopModule } from './shop/shop.module';
 import { TopupModule } from './topup/topup.module';
 import { WithdrawalModule } from './withdrawal/withdrawal.module';
 import { PityModule } from './pity/pity.module';
+import { LockModule } from './lock/lock.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PityModule } from './pity/pity.module';
     TopupModule,
     WithdrawalModule,
     PityModule,
+    LockModule,
   ],
   controllers: [AppController],
   providers: [AppService],
