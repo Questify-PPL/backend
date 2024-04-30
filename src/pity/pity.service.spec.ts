@@ -431,7 +431,9 @@ describe('PityService', () => {
         jest
           .spyOn(prismaService.respondent, 'findMany')
           .mockResolvedValue(respondents);
-        jest.spyOn(Math, 'random').mockReturnValue(randomValue);
+        jest
+          .spyOn(service as any, 'generateRandomValue')
+          .mockReturnValue(randomValue);
 
         const result = await (service as any).randomPickWithWeights(
           maxWinner,
@@ -441,5 +443,13 @@ describe('PityService', () => {
         expect(result).toEqual(expectedWinnerIds);
       },
     );
+  });
+
+  describe('generateRandomValue', () => {
+    it('should generate a random value between 0 and 1', () => {
+      const randomValue = (service as any).generateRandomValue();
+
+      expect(randomValue).toBeLessThan(1);
+    });
   });
 });
