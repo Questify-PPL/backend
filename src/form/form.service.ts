@@ -140,7 +140,7 @@ export class FormService {
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
-    await this.validateUserOnForm(formId, userId, true);
+    await this.validateUserOnForm(formId, userId);
 
     if (updateFormDTO.formQuestions) this.validateFormQuestions(formQuestions);
 
@@ -622,11 +622,7 @@ export class FormService {
     return returnLatestForm;
   }
 
-  private async validateUserOnForm(
-    formId: string,
-    userId: string,
-    isUpdating = false,
-  ) {
+  private async validateUserOnForm(formId: string, userId: string) {
     const form = await this.prismaService.form.findUnique({
       where: {
         id: formId,
@@ -640,10 +636,6 @@ export class FormService {
 
     if (form.creatorId !== userId) {
       throw new BadRequestException('User is not authorized to modify form');
-    }
-
-    if (isUpdating && form.isPublished) {
-      throw new BadRequestException('Form is already published');
     }
   }
 
@@ -887,6 +879,12 @@ export class FormService {
           previousQuestionType,
           'delete',
         );
+        await this.prismaService.answer.deleteMany({
+          where: {
+            formId: formId,
+            questionId: questionId,
+          },
+        });
       }
       await updateOrDelete(this.prismaService, questionType, 'create');
 

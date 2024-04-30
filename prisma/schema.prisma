@@ -40,7 +40,7 @@ model User {
   gender              String?
   companyName         String?
   birthDate           DateTime?
-  credit              Int          @default(0)
+  credit              Float        @default(0)
   isVerified          Boolean      @default(false)
   isBlocked           Boolean      @default(false)
   hasCompletedProfile Boolean      @default(false)
