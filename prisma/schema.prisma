@@ -164,6 +164,9 @@ model Form {
   endedAt   DateTime?
   Section   Section[] // Better include Opening and Closing as section
   Question  Question[]
+
+  isWinnerProcessed Boolean @default(false)
+  totalPity         Int     @default(0)
 }
 
 model Section {
@@ -186,6 +189,7 @@ model Participation {
   isCompleted             Boolean    @default(false)
   emailNotificationActive Boolean    @default(true)
   questionsAnswered       Int        @default(0)
+  finalWinningChance      Float      @default(0)
 
   @@id([respondentId, formId])
 }

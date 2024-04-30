@@ -2,12 +2,32 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FormService } from './form.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { BadRequestException } from '@nestjs/common';
+import { LockService } from 'src/lock/lock.service';
+import { PityService } from 'src/pity/pity.service';
 
 describe('FormService', () => {
   let service: FormService;
   let prismaService: PrismaService;
+  let lockService: LockService;
+  let pityService: PityService;
+
+  const participation = {
+    respondentId: 'u1',
+    formId: 'f1',
+    isCompleted: true,
+    emailNotificationActive: false,
+    questionsAnswered: 25,
+    finalWinningChance: 0,
+  };
+
+  const respondent = {
+    userId: 'u1',
+    pity: 10,
+    Participation: [participation[0]],
+  };
 
   const dummyForm = {
+    id: 'f1',
     title: 'testForm',
     prize: 20000,
     creatorId: 'userId',
@@ -132,6 +152,7 @@ describe('FormService', () => {
         respondentId: 'userId',
       },
     ],
+    Participation: [participation[0]],
   };
 
   const dummyForms = [
@@ -216,11 +237,15 @@ describe('FormService', () => {
             $transaction: jest.fn(),
           },
         },
+        LockService,
+        PityService,
       ],
     }).compile();
 
     service = module.get<FormService>(FormService);
     prismaService = module.get<PrismaService>(PrismaService);
+    lockService = module.get<LockService>(LockService);
+    pityService = module.get<PityService>(PityService);
   });
 
   it('should be defined', () => {
@@ -289,8 +314,13 @@ describe('FormService', () => {
         form: dummyForm,
         isCompleted: true,
         questionAnswered: 0,
+        respondent: respondent,
+        finalWinningChance: participation.finalWinningChance,
       })) as any,
     );
+
+    jest.spyOn(lockService, 'acquireLock').mockReturnValue(false);
+    jest.spyOn(pityService, 'calculateWinningChance').mockReturnValue(100);
 
     expect(await service.getFilledForm('userId')).toEqual(expect.any(Object));
   });
@@ -308,10 +338,89 @@ describe('FormService', () => {
         },
         isCompleted: false,
         questionAnswered: 0,
+        respondent: respondent,
+        finalWinningChance: participation.finalWinningChance,
       })) as any,
     );
 
+    jest.spyOn(lockService, 'acquireLock').mockReturnValue(false);
+    jest.spyOn(pityService, 'calculateWinningChance').mockReturnValue(100);
+
     expect(await service.getFilledForm('userId')).toEqual(expect.any(Object));
+  });
+
+  it('should not processWinner when the form is processed', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue(
+      dummyForms.map((dummyForm) => ({
+        form: {
+          ...dummyForm,
+          endedAt: new Date(new Date().getTime() - 1000 * 60 * 60 * 24 * 7),
+        },
+        isCompleted: false,
+        questionAnswered: 0,
+        respondent: respondent,
+        finalWinningChance: participation.finalWinningChance,
+      })) as any,
+    );
+
+    jest
+      .spyOn(lockService, 'acquireLock')
+      .mockImplementation((key: string) =>
+        key === `form-${dummyForms[0].id}` ? false : true,
+      );
+    jest.spyOn(pityService, 'processWinner').mockImplementation();
+    jest.spyOn(lockService, 'releaseLock').mockImplementation();
+    jest.spyOn(pityService, 'calculateWinningChance').mockReturnValue(100);
+
+    expect(await service.getFilledForm('userId')).toEqual(expect.any(Object));
+    expect(lockService.acquireLock).toHaveBeenCalledWith(
+      `form-${dummyForms[0].id}`,
+    );
+    expect(pityService.processWinner).not.toHaveBeenCalledWith(dummyForms[0]);
+    expect(lockService.releaseLock).not.toHaveBeenCalledWith(
+      `form-${dummyForms[0].id}`,
+    );
+    expect(pityService.calculateWinningChance).toHaveBeenCalled();
+  });
+
+  it('should processWinner when the form is not processed', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue(
+      dummyForms.map((dummyForm) => ({
+        form: dummyForm,
+        isCompleted: true,
+        questionAnswered: 0,
+        respondent: respondent,
+        finalWinningChance: participation.finalWinningChance,
+      })) as any,
+    );
+
+    jest
+      .spyOn(lockService, 'acquireLock')
+      .mockImplementation((key: string) =>
+        key === 'forms-f100' ? false : true,
+      );
+    jest.spyOn(lockService, 'acquireLock').mockReturnValue(true);
+    jest.spyOn(pityService, 'processWinner').mockResolvedValue(['userId']);
+    jest.spyOn(lockService, 'releaseLock').mockImplementation();
+    jest.spyOn(pityService, 'calculateWinningChance').mockReturnValue(100);
+
+    expect(await service.getFilledForm('userId')).toEqual(expect.any(Object));
+    expect(lockService.acquireLock).toHaveBeenCalledWith(
+      `form-${dummyForms[0].id}`,
+    );
+    expect(pityService.processWinner).toHaveBeenCalledWith(dummyForms[0]);
+    expect(lockService.acquireLock).toHaveBeenCalledWith(
+      `form-${dummyForms[0].id}`,
+    );
+    expect(pityService.calculateWinningChance).toHaveBeenCalled();
   });
 
   it('should throw error if form is not found in getFormById', async () => {
@@ -388,6 +497,70 @@ describe('FormService', () => {
   it('should call prismaService.form.findUnique as respondent with the correct arguments if iscomplete false but endedat is greater than current time', async () => {
     jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
       ...dummyForm,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
+    } as any);
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: userId,
+      isCompleted: false,
+    } as any);
+
+    expect(await service.getFormById('formId', 'respondent', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should cover the case where form has opening section', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...{
+        ...dummyForm,
+        Section: [
+          ...dummyForm.Section,
+          {
+            formId: '9cbfa361-505f-409c-8991-4d7d1a6e84b3',
+            sectionId: 67,
+            name: 'Opening',
+            description:
+              'Hello! I’m Ruben. I’m a Scientist at Oreo. Through this questionnaire I’d like to know consumer’s preferences for Oreo flavors and packaging.',
+            questions: [],
+          },
+        ],
+      },
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
+    } as any);
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: userId,
+      isCompleted: false,
+    } as any);
+
+    expect(await service.getFormById('formId', 'respondent', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.any(Object),
+    });
+  });
+
+  it('should cover the case where form has closing section', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...{
+        ...dummyForm,
+        Section: [
+          ...dummyForm.Section,
+          {
+            formId: '9cbfa361-505f-409c-8991-4d7d1a6e84b3',
+            sectionId: 71,
+            name: 'Ending',
+            description:
+              'Thank you for participating! Your insights are valuable. I hope you don’t mind joining future questionnaires.',
+            questions: [],
+          },
+        ],
+      },
       endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
     } as any);
     const userId = 'userId';
@@ -1225,6 +1398,10 @@ describe('FormService', () => {
       .spyOn(prismaService.participation, 'update')
       .mockResolvedValue({} as any);
 
+    jest
+      .spyOn(pityService, 'updatePityAfterParticipation')
+      .mockImplementation();
+
     expect(
       await service.updateParticipation(
         'formId',
@@ -1271,6 +1448,10 @@ describe('FormService', () => {
 
     jest.spyOn(prismaService.answer, 'upsert').mockResolvedValue({} as any);
 
+    jest
+      .spyOn(pityService, 'updatePityAfterParticipation')
+      .mockImplementation();
+
     expect(
       await service.updateParticipation(
         'formId',
@@ -1282,6 +1463,69 @@ describe('FormService', () => {
       message: 'Successfully update participation',
       data: {},
     });
+  });
+
+  it('should call pityService.updatePityAfterParticipation for newly completed participation', async () => {
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: 'userId',
+      isCompleted: false,
+    } as any);
+
+    jest
+      .spyOn(prismaService.participation, 'update')
+      .mockResolvedValue({} as any);
+
+    jest.spyOn(prismaService.answer, 'upsert').mockResolvedValue({} as any);
+
+    jest
+      .spyOn(pityService, 'updatePityAfterParticipation')
+      .mockImplementation();
+
+    expect(
+      await service.updateParticipation(
+        'formId',
+        'userId',
+        updateParticipationDTO,
+      ),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update participation',
+      data: {},
+    });
+    expect(pityService.updatePityAfterParticipation).toHaveBeenCalled();
+    expect(pityService.updatePityAfterParticipation).toHaveBeenCalledWith(
+      'formId',
+      'userId',
+    );
+  });
+
+  it('should not call pityService.updatePityAfterParticipation for incomplete participation', async () => {
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: 'userId',
+      isCompleted: false,
+    } as any);
+
+    jest
+      .spyOn(prismaService.participation, 'update')
+      .mockResolvedValue({} as any);
+
+    jest.spyOn(prismaService.answer, 'upsert').mockResolvedValue({} as any);
+
+    jest
+      .spyOn(pityService, 'updatePityAfterParticipation')
+      .mockImplementation();
+
+    expect(
+      await service.updateParticipation('formId', 'userId', {
+        ...updateParticipationDTO,
+        isCompleted: false,
+      }),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update participation',
+      data: {},
+    });
+    expect(pityService.updatePityAfterParticipation).not.toHaveBeenCalled();
   });
 
   it('should call getFormSummary with the correct arguments', async () => {
@@ -1492,7 +1736,7 @@ describe('FormService', () => {
       'Content-Disposition',
       `attachment; filename=testForm.csv`,
     );
-    expect(mockResponse.status).toHaveBeenCalledWith(200);
+    expect(mockResponse.status).toHaveBeenCalledWith(201);
     expect(mockResponse.send).toHaveBeenCalled();
   });
 
