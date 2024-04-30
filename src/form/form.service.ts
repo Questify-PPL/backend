@@ -19,10 +19,16 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Parser } from 'json2csv';
 import { Response } from 'express';
+import { LockService } from 'src/lock/lock.service';
+import { PityService } from 'src/pity/pity.service';
 
 @Injectable()
 export class FormService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly lockService: LockService,
+    private readonly pityService: PityService,
+  ) {}
 
   /*  ======================================================
         Pembubatan Kuesioner
@@ -307,6 +313,10 @@ export class FormService {
           }),
         },
       });
+
+      if (isCompleted) {
+        this.pityService.updatePityAfterParticipation(formId, userId);
+      }
 
       return {
         statusCode: 200,
@@ -909,25 +919,52 @@ export class FormService {
           include: {
             Question: true,
             Winner: true,
+            Participation: true,
           },
         },
         questionsAnswered: true,
         isCompleted: true,
+        respondent: true,
+        finalWinningChance: true,
       },
     });
 
     const forms = participations.map(async (participation) => {
-      const winningChance = this.decideWinningChance();
-
-      const winningStatus = participation.form.Winner.some(
-        (winner) => winner.respondentId === userId,
+      const formId = participation.form.id;
+      let winnerIds = participation.form.Winner.map(
+        (winner) => winner.respondentId,
       );
+      const lockKey = `form-${formId}`;
+
+      const acquired = this.lockService.acquireLock(lockKey);
+
+      if (acquired) {
+        const processedWinnerIds = await this.pityService.processWinner(
+          participation.form,
+        );
+
+        if (processedWinnerIds) {
+          winnerIds = processedWinnerIds;
+        }
+
+        this.lockService.releaseLock(lockKey);
+      }
+
+      const winningChance = this.pityService.calculateWinningChance(
+        participation.respondent,
+        participation.form,
+        participation.isCompleted,
+        participation.finalWinningChance,
+      );
+
+      const winningStatus = winnerIds.includes(userId);
 
       return this.excludeKeys(
         {
           ...(this.excludeKeys(participation.form, [
             'Question',
             'Winner',
+            'Participation',
           ]) as Form),
           questionFilled: participation.questionsAnswered,
           isCompleted:
@@ -938,7 +975,14 @@ export class FormService {
           winningChance,
           winningStatus,
         },
-        ['isDraft', 'isPublished', 'maxParticipant', 'updatedAt'],
+        [
+          'isDraft',
+          'isPublished',
+          'maxParticipant',
+          'updatedAt',
+          'isWinnerProcessed',
+          'totalPity',
+        ],
       );
     });
 
@@ -1156,10 +1200,6 @@ export class FormService {
         questionsAnswered: filledQuestionsAmount,
       },
     });
-  }
-
-  private decideWinningChance() {
-    return 0;
   }
 
   private async groupBySectionId(

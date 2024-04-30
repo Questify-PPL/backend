@@ -151,7 +151,9 @@ describe('PityService', () => {
 
   describe('processWinner', () => {
     it('should not processWinner for ongoing form', async () => {
-      jest.spyOn(service as any, 'updatePityAndCreditsForEven');
+      jest
+        .spyOn(service as any, 'updatePityAndCreditsForEven')
+        .mockImplementation();
       jest.spyOn(service as any, 'randomPickWithWeights').mockImplementation();
 
       await service.processWinner({
@@ -166,7 +168,9 @@ describe('PityService', () => {
     });
 
     it('should not processWinner for ended form with isWinnerProcessed true', async () => {
-      jest.spyOn(service as any, 'updatePityAndCreditsForEven');
+      jest
+        .spyOn(service as any, 'updatePityAndCreditsForEven')
+        .mockImplementation();
       jest.spyOn(service as any, 'randomPickWithWeights').mockImplementation();
 
       await service.processWinner({
@@ -183,7 +187,9 @@ describe('PityService', () => {
     });
 
     it('should not process EVEN or LUCKY for ended form with 0 participants', async () => {
-      jest.spyOn(service as any, 'updatePityAndCreditsForEven');
+      jest
+        .spyOn(service as any, 'updatePityAndCreditsForEven')
+        .mockImplementation();
       jest.spyOn(service as any, 'randomPickWithWeights').mockImplementation();
 
       await service.processWinner({
@@ -197,10 +203,20 @@ describe('PityService', () => {
         (service as any).updatePityAndCreditsForEven,
       ).not.toHaveBeenCalled();
       expect((service as any).randomPickWithWeights).not.toHaveBeenCalled();
+      expect(prismaService.form.update).toHaveBeenCalledWith({
+        where: {
+          id: forms[1].id,
+        },
+        data: {
+          isWinnerProcessed: true,
+        },
+      });
     });
 
     it('should not process EVEN or LUCKY for ended form with 0 maxWinner', async () => {
-      jest.spyOn(service as any, 'updatePityAndCreditsForEven');
+      jest
+        .spyOn(service as any, 'updatePityAndCreditsForEven')
+        .mockImplementation();
       jest.spyOn(service as any, 'randomPickWithWeights').mockImplementation();
 
       await service.processWinner({
@@ -214,10 +230,20 @@ describe('PityService', () => {
         (service as any).updatePityAndCreditsForEven,
       ).not.toHaveBeenCalled();
       expect((service as any).randomPickWithWeights).not.toHaveBeenCalled();
+      expect(prismaService.form.update).toHaveBeenCalledWith({
+        where: {
+          id: forms[1].id,
+        },
+        data: {
+          isWinnerProcessed: true,
+        },
+      });
     });
 
     it('should process EVEN for ended form with isWinnerProcessed false and prizeType EVEN', async () => {
-      jest.spyOn(service as any, 'updatePityAndCreditsForEven');
+      jest
+        .spyOn(service as any, 'updatePityAndCreditsForEven')
+        .mockImplementation();
       jest.spyOn(service as any, 'randomPickWithWeights').mockImplementation();
 
       await service.processWinner({
@@ -226,16 +252,26 @@ describe('PityService', () => {
         Participation: participations,
       });
 
-      expect(
-        (service as any).updatePityAndCreditsForEven,
-      ).toHaveBeenCalledTimes(1);
+      expect((service as any).updatePityAndCreditsForEven).toHaveBeenCalled();
       expect((service as any).randomPickWithWeights).not.toHaveBeenCalled();
+      expect(prismaService.form.update).toHaveBeenCalledWith({
+        where: {
+          id: forms[1].id,
+        },
+        data: {
+          isWinnerProcessed: true,
+        },
+      });
     });
 
     it('should process LUCKY for ended form with isWinnerProcessed false and prizeType LUCKY', async () => {
-      jest.spyOn(service as any, 'updatePityAndCreditsForEven');
+      jest
+        .spyOn(service as any, 'updatePityAndCreditsForEven')
+        .mockImplementation();
       jest.spyOn(service as any, 'randomPickWithWeights').mockImplementation();
-      jest.spyOn(service as any, 'updatePityAndCreditsForLucky');
+      jest
+        .spyOn(service as any, 'updatePityAndCreditsForLucky')
+        .mockImplementation();
 
       await service.processWinner({
         ...forms[0],
@@ -246,14 +282,49 @@ describe('PityService', () => {
       expect(
         (service as any).updatePityAndCreditsForEven,
       ).not.toHaveBeenCalled();
-      expect((service as any).randomPickWithWeights).toHaveBeenCalledTimes(1);
+      expect((service as any).randomPickWithWeights).toHaveBeenCalled();
       expect((service as any).randomPickWithWeights).toHaveBeenCalledWith(
         forms[0].maxWinner,
         respondentIds,
       );
+      expect((service as any).updatePityAndCreditsForLucky).toHaveBeenCalled();
+      expect(prismaService.form.update).toHaveBeenCalledWith({
+        where: {
+          id: forms[0].id,
+        },
+        data: {
+          isWinnerProcessed: true,
+        },
+      });
+    });
+
+    it('should not process EVEN or LUCKY for ended form with no completed participation', async () => {
+      jest
+        .spyOn(service as any, 'updatePityAndCreditsForEven')
+        .mockImplementation();
+      jest.spyOn(service as any, 'randomPickWithWeights').mockImplementation();
+
+      await service.processWinner({
+        ...forms[0],
+        endedAt: new Date(2024, 3, 18),
+        Participation: participations.map((participation) => ({
+          ...participation,
+          isCompleted: false,
+        })),
+      });
+
       expect(
-        (service as any).updatePityAndCreditsForLucky,
-      ).toHaveBeenCalledTimes(1);
+        (service as any).updatePityAndCreditsForEven,
+      ).not.toHaveBeenCalled();
+      expect((service as any).randomPickWithWeights).not.toHaveBeenCalled();
+      expect(prismaService.form.update).toHaveBeenCalledWith({
+        where: {
+          id: forms[0].id,
+        },
+        data: {
+          isWinnerProcessed: true,
+        },
+      });
     });
   });
 
@@ -443,6 +514,165 @@ describe('PityService', () => {
         expect(result).toEqual(expectedWinnerIds);
       },
     );
+  });
+
+  describe('updatePityAndCreditsForEven', () => {
+    it('should update pity and credits for even distribution', async () => {
+      jest
+        .spyOn(prismaService, '$transaction')
+        .mockImplementation(async (prisma) => {
+          const mockPrisma = {
+            user: {
+              updateMany: jest.fn(),
+            },
+            participation: {
+              updateMany: jest.fn(),
+            },
+            winner: {
+              createMany: jest.fn(),
+            },
+          } as any;
+
+          await prisma(mockPrisma);
+
+          expect(mockPrisma.user.updateMany).toHaveBeenCalledWith({
+            where: {
+              id: {
+                in: respondentIds,
+              },
+            },
+            data: {
+              credit: {
+                increment: forms[0].prize / respondentIds.length,
+              },
+            },
+          });
+
+          expect(mockPrisma.participation.updateMany).toHaveBeenCalledWith({
+            where: {
+              respondentId: {
+                in: respondentIds,
+              },
+              formId: forms[0].id,
+            },
+            data: {
+              finalWinningChance: 100,
+            },
+          });
+
+          expect(mockPrisma.winner.createMany).toHaveBeenCalledWith({
+            data: respondentIds.map((winnerId) => ({
+              respondentId: winnerId,
+              formId: forms[0].id,
+            })),
+          });
+        });
+
+      await (service as any).updatePityAndCreditsForEven(
+        forms[0].prize,
+        respondentIds,
+        forms[0].id,
+      );
+
+      expect(prismaService.$transaction).toHaveBeenCalled();
+    });
+  });
+
+  describe('updatePityAndCreditsForLucky', () => {
+    it('should update pity and credits for lucky distribution', async () => {
+      const winnerIds = ['u3', 'u2', 'u5', 'u4'];
+
+      jest
+        .spyOn(prismaService, '$transaction')
+        .mockImplementation(async (prisma) => {
+          const mockPrisma = {
+            user: {
+              updateMany: jest.fn(),
+            },
+            respondent: {
+              findMany: jest.fn().mockResolvedValue(respondents),
+              updateMany: jest.fn(),
+            },
+            participation: {
+              update: jest.fn(),
+            },
+            winner: {
+              createMany: jest.fn(),
+            },
+          } as any;
+
+          await prisma(mockPrisma);
+
+          expect(mockPrisma.user.updateMany).toHaveBeenCalledWith({
+            where: {
+              id: {
+                in: winnerIds,
+              },
+            },
+            data: {
+              credit: {
+                increment: forms[0].prize / winnerIds.length,
+              },
+            },
+          });
+
+          for (const respondent of respondents) {
+            expect(mockPrisma.participation.update).toHaveBeenCalledWith({
+              where: {
+                respondentId_formId: {
+                  formId: forms[0].id,
+                  respondentId: respondent.userId,
+                },
+              },
+              data: {
+                finalWinningChance:
+                  (respondent.pity / forms[0].totalPity) * 100,
+              },
+            });
+          }
+
+          expect(mockPrisma.respondent.updateMany).toHaveBeenCalledWith({
+            where: {
+              userId: {
+                in: winnerIds,
+              },
+            },
+            data: {
+              pity: 1,
+            },
+          });
+
+          expect(mockPrisma.respondent.updateMany).toHaveBeenCalledWith({
+            where: {
+              userId: {
+                in: respondentIds.filter((id) => !winnerIds.includes(id)),
+              },
+            },
+            data: {
+              pity: {
+                increment: 2,
+              },
+            },
+          });
+
+          expect(mockPrisma.winner.createMany).toHaveBeenCalledWith({
+            data: winnerIds.map((winnerId) => ({
+              respondentId: winnerId,
+              formId: forms[0].id,
+            })),
+          });
+        });
+
+      await (service as any).updatePityAndCreditsForLucky(
+        forms[0].prize,
+        winnerIds,
+        respondentIds,
+        forms[0].id,
+        forms[0].totalPity,
+      );
+
+      expect(prismaService.$transaction).toHaveBeenCalled();
+    });
   });
 
   describe('generateRandomValue', () => {

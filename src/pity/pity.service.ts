@@ -7,39 +7,58 @@ import { randomBytes } from 'crypto';
 export class PityService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  /*
-    Note: processWinner, computeWinningChance, and updatePityAfterParticipation, will be
-    called from form.service.ts after PBI-14-PenyebaranHadiahKuesioner has been implemented.
-  */
-
   async processWinner(form: Form & { Participation: Participation[] }) {
-    const { prizeType, maxWinner, Participation, endedAt, isWinnerProcessed } =
-      form;
+    const {
+      id: formId,
+      prize,
+      prizeType,
+      maxWinner,
+      Participation,
+      endedAt,
+      isWinnerProcessed,
+      totalPity,
+    } = form;
 
     if (endedAt === null || endedAt >= new Date() || isWinnerProcessed) {
       return;
     }
 
-    const respondentIds = Participation.map(
-      (participation) => participation.respondentId,
-    );
+    const respondentIds = Participation.filter(
+      (participation) => participation.isCompleted,
+    ).map((participation) => participation.respondentId);
+
+    let winnerIds: string[] = [];
 
     if (respondentIds.length !== 0 && maxWinner !== 0) {
       if (prizeType === PrizeType.EVEN) {
-        // PBI-14-PenyebaranHadiahKuesioner
-        this.updatePityAndCreditsForEven(respondentIds);
+        winnerIds = respondentIds;
+        await this.updatePityAndCreditsForEven(prize, winnerIds, formId);
       } else {
-        const winnerIds: string[] = await this.randomPickWithWeights(
-          maxWinner,
+        winnerIds = await this.randomPickWithWeights(maxWinner, respondentIds);
+        await this.updatePityAndCreditsForLucky(
+          prize,
+          winnerIds,
           respondentIds,
+          formId,
+          totalPity,
         );
-        // PBI-14-PenyebaranHadiahKuesioner
-        this.updatePityAndCreditsForLucky(winnerIds);
       }
     }
 
-    // PBI-14-PenyebaranHadiahKuesioner
-    // UPDATE form.isWinnerProcessed (true)
+    await this.markWinnerProcessed(formId);
+
+    return winnerIds;
+  }
+
+  private async markWinnerProcessed(formId: string) {
+    await this.prismaService.form.update({
+      where: {
+        id: formId,
+      },
+      data: {
+        isWinnerProcessed: true,
+      },
+    });
   }
 
   calculateWinningChance(
@@ -126,8 +145,9 @@ export class PityService {
       },
     });
 
-    let { prefixSum, totalSum } = this.calculateSum(respondents);
+    const { prefixSum, sum } = this.calculateSum(respondents);
     const winnerIds: string[] = [];
+    let totalSum = sum;
 
     // Random pick K winners
     for (let i = 0; i < maxWinner; i++) {
@@ -188,9 +208,8 @@ export class PityService {
       sum += respondent.pity;
       prefixSum.push(sum);
     }
-    const totalSum = sum;
 
-    return { prefixSum, totalSum };
+    return { prefixSum, sum };
   }
 
   private recalculateSum(
@@ -213,15 +232,130 @@ export class PityService {
     return newSum;
   }
 
-  private async updatePityAndCreditsForEven(respondentIds: string[]) {
-    // UPDATE ALL users' credit (credit += prize / Participation.length)
-    // UPDATE ALL participation.finalWinningChance (100)
-    // NO changes for users' pity
+  private async updatePityAndCreditsForEven(
+    prize: number,
+    winnerIds: string[],
+    formId: string,
+  ) {
+    const winnerCount = winnerIds.length;
+
+    await this.prismaService.$transaction(async (prisma) => {
+      // Update credits for winners
+      await prisma.user.updateMany({
+        where: {
+          id: {
+            in: winnerIds,
+          },
+        },
+        data: {
+          credit: {
+            increment: prize / winnerCount,
+          },
+        },
+      });
+
+      // Update finalWinningChance for respondents' participation of the form
+      await prisma.participation.updateMany({
+        where: {
+          respondentId: {
+            in: winnerIds,
+          },
+          formId: formId,
+        },
+        data: {
+          finalWinningChance: 100,
+        },
+      });
+
+      // Create winners for the form
+      await prisma.winner.createMany({
+        data: winnerIds.map((winnerId) => ({
+          respondentId: winnerId,
+          formId: formId,
+        })),
+      });
+    });
   }
 
-  private async updatePityAndCreditsForLucky(winnerIds: string[]) {
-    // UPDATE ALL winners' credit (credit += prize / winners.length)
-    // UPDATE ALL participation.finalWinningChance
-    // UPDATE ALL users' (winners and non-winners) pity
+  private async updatePityAndCreditsForLucky(
+    prize: number,
+    winnerIds: string[],
+    respondentIds: string[],
+    formId: string,
+    totalPity: number,
+  ) {
+    const winnerCount = winnerIds.length;
+
+    await this.prismaService.$transaction(async (prisma) => {
+      // Update credits for winners
+      await prisma.user.updateMany({
+        where: {
+          id: {
+            in: winnerIds,
+          },
+        },
+        data: {
+          credit: {
+            increment: prize / winnerCount,
+          },
+        },
+      });
+
+      // Update finalWinningChance for each respondent's participation of the form
+      const respondents = await prisma.respondent.findMany({
+        where: {
+          userId: {
+            in: respondentIds,
+          },
+        },
+      });
+
+      for (const respondent of respondents) {
+        await prisma.participation.update({
+          where: {
+            respondentId_formId: {
+              formId: formId,
+              respondentId: respondent.userId,
+            },
+          },
+          data: {
+            finalWinningChance: (respondent.pity / totalPity) * 100,
+          },
+        });
+      }
+
+      // Update pity for winners and non-winners
+      await prisma.respondent.updateMany({
+        where: {
+          userId: {
+            in: winnerIds,
+          },
+        },
+        data: {
+          pity: 1,
+        },
+      });
+
+      await prisma.respondent.updateMany({
+        where: {
+          userId: {
+            in: respondentIds.filter((id) => !winnerIds.includes(id)),
+          },
+        },
+        data: {
+          pity: {
+            increment: 2,
+          },
+        },
+      });
+
+      // Create winners for the form
+      await prisma.winner.createMany({
+        data: winnerIds.map((winnerId) => ({
+          respondentId: winnerId,
+          formId: formId,
+        })),
+      });
+    });
   }
 }
