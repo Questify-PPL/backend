@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Form, Participation, PrizeType, Respondent } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class PityService {
@@ -39,7 +40,6 @@ export class PityService {
 
     // PBI-14-PenyebaranHadiahKuesioner
     // UPDATE form.isWinnerProcessed (true)
-    return;
   }
 
   calculateWinningChance(
@@ -110,12 +110,15 @@ export class PityService {
     });
   }
 
-  private async randomPickWithWeights(maxWinner: number, respondentIds: string[]) {
+  private async randomPickWithWeights(
+    maxWinner: number,
+    respondentIds: string[],
+  ) {
     if (respondentIds.length <= maxWinner) {
       return respondentIds;
     }
 
-    let respondents = await this.prismaService.respondent.findMany({
+    const respondents = await this.prismaService.respondent.findMany({
       where: {
         userId: {
           in: respondentIds,
@@ -129,7 +132,7 @@ export class PityService {
     // Random pick K winners
     for (let i = 0; i < maxWinner; i++) {
       const numberOfWinners = i;
-      const target = totalSum * Math.random();
+      const target = totalSum * this.generateRandomValue();
 
       const winnerIndex = this.findWinnerIndex(
         prefixSum,
@@ -152,6 +155,10 @@ export class PityService {
     }
 
     return winnerIds;
+  }
+
+  private generateRandomValue() {
+    return randomBytes(4).readUInt32LE(0) / 0x100000000;
   }
 
   private findWinnerIndex(
