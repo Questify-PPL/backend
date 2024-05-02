@@ -705,6 +705,7 @@ export class FormService {
       section = await this.prismaService.section.create({
         data: {
           name: formQuestion.sectionName,
+          number: formQuestion.number,
           ...(formQuestion.sectionDescription && {
             description: formQuestion.sectionDescription,
           }),
@@ -723,6 +724,7 @@ export class FormService {
           },
           data: {
             name: formQuestion.sectionName,
+            number: formQuestion.number,
             ...(formQuestion.sectionDescription && {
               description: formQuestion.sectionDescription,
             }),
@@ -749,6 +751,7 @@ export class FormService {
       newOrUpdatedQuestion = await this.prismaService.question.create({
         data: {
           question: question.question,
+          number: question.number,
           questionTypeName: question.questionTypeName,
           ...(question.description && {
             description: question.description,
@@ -789,6 +792,7 @@ export class FormService {
           },
           data: {
             question: question.question,
+            number: question.number,
             ...(question.description && {
               description: question.description,
             }),
