@@ -1270,9 +1270,9 @@ export class FormService {
         });
       } else {
         (acc[sectionIndex] as SectionWithQuestions).questions.push(toPut);
-        (acc[sectionIndex] as SectionWithQuestions).questions = (
-          (acc[sectionIndex] as SectionWithQuestions).questions as Question[]
-        ).sort((a, b) => a.number - b.number);
+        (acc[sectionIndex] as SectionWithQuestions).questions.sort(
+          (a, b) => a.number - b.number,
+        );
       }
     } else {
       acc.push(toPut);
