@@ -11,8 +11,11 @@ import {
 import {
   CreateFormDTO,
   FormQuestion,
+  GroupedQuestions,
   Question,
   QuestionAnswer,
+  SectionWithQuestions,
+  Statistics,
   UpdateFormDTO,
   UpdateParticipationDTO,
 } from 'src/dto';
@@ -344,7 +347,7 @@ export class FormService {
         return answer.answer;
       });
 
-      let statistics;
+      let statistics: Statistics;
 
       if (questionType === 'RADIO' || questionType === 'CHECKBOX') {
         const choices =
@@ -1077,7 +1080,9 @@ export class FormService {
         return acc;
       },
       [],
-    );
+    ).sort((a, b) => {
+      return a.number - b.number;
+    });
 
     const groupedQuestion = [
       openingSection &&
@@ -1238,7 +1243,7 @@ export class FormService {
 
   private async groupBySectionId(
     Section: Section[],
-    acc: any[],
+    acc: GroupedQuestions,
     question: QuestionPrisma & {
       Radio: Radio;
       Checkbox: Checkbox;
@@ -1255,7 +1260,7 @@ export class FormService {
 
       // group by sectionId
       const sectionIndex = acc.findIndex(
-        (question) => question.sectionId === sectionId,
+        (question: SectionWithQuestions) => question.sectionId === sectionId,
       );
 
       if (sectionIndex === -1) {
@@ -1264,7 +1269,10 @@ export class FormService {
           questions: [toPut],
         });
       } else {
-        acc[sectionIndex].questions.push(toPut);
+        (acc[sectionIndex] as SectionWithQuestions).questions.push(toPut);
+        (acc[sectionIndex] as SectionWithQuestions).questions = (
+          (acc[sectionIndex] as SectionWithQuestions).questions as Question[]
+        ).sort((a, b) => a.number - b.number);
       }
     } else {
       acc.push(toPut);
