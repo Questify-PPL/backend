@@ -37,6 +37,7 @@ describe('FormService', () => {
       {
         questionType: 'RADIO',
         questionId: 1,
+        number: 1,
         isRequired: true,
         question: 'Question 1',
         Radio: {
@@ -59,6 +60,7 @@ describe('FormService', () => {
       {
         questionType: 'CHECKBOX',
         questionId: 2,
+        number: 2,
         sectionId: 1,
         isRequired: true,
         question: 'Question 2',
@@ -82,6 +84,7 @@ describe('FormService', () => {
       {
         questionType: 'TEXT',
         questionId: 3,
+        number: 3,
         sectionId: 1,
         isRequired: true,
         question: 'Question 3',
@@ -105,6 +108,7 @@ describe('FormService', () => {
       {
         questionType: 'RADIO',
         questionId: 4,
+        number: 4,
         sectionId: 1,
         isRequired: true,
         question: 'Question 2',
@@ -121,6 +125,7 @@ describe('FormService', () => {
       {
         name: 'Section 1',
         sectionId: 1,
+        number: 1,
         description: 'Description',
         Question: [
           {

@@ -20,6 +20,14 @@ export class Question {
   questionId?: number;
 
   @ApiProperty({
+    title: 'Question Number',
+    type: Number,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  number: number;
+
+  @ApiProperty({
     title: 'Question Type',
     type: String,
   })
@@ -92,6 +100,14 @@ export class FormQuestion {
   @IsOptional()
   @IsString()
   sectionName?: string;
+
+  @ApiProperty({
+    title: 'Question or Section Number',
+    type: Number,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  number: number;
 
   @ApiProperty({
     title: 'Section Description',
