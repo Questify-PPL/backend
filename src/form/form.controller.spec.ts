@@ -29,6 +29,7 @@ describe('FormController', () => {
             getAllQuestionsAnswer: jest.fn().mockResolvedValue({}),
             getAllIndividual: jest.fn().mockResolvedValue({}),
             exportFormAsCSV: jest.fn().mockResolvedValue({}),
+            getIndividualResponse: jest.fn().mockResolvedValue({}),
           },
         },
       ],
@@ -169,6 +170,16 @@ describe('FormController', () => {
 
     expect(
       await controller.exportFormAsCSV(formId, userId, expressResponse),
+    ).toEqual({});
+  });
+
+  it('should call formService.getIndividualAnswer with the correct arguments', async () => {
+    const formId = 'formId';
+    const userId = 'userId';
+    const respondentId = 'respondentId';
+
+    expect(
+      await controller.getIndividualResponse(formId, userId, respondentId),
     ).toEqual({});
   });
 });

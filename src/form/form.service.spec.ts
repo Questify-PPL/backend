@@ -1637,6 +1637,13 @@ describe('FormService', () => {
     jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue([
       {
         respondentId: 'userId',
+        respondent: {
+          user: {
+            email: 'test@example.com',
+            firstName: 'Test',
+            lastName: 'User',
+          },
+        },
       },
     ] as any);
 
@@ -1831,5 +1838,57 @@ describe('FormService', () => {
     await expect(
       service.exportFormAsCSV(formId, userId, mockResponse as any),
     ).rejects.toThrow('Failed to export form as CSV');
+  });
+
+  it('should throw error when form is not found in getIndividualAnswer', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null);
+
+    await expect(
+      service.getIndividualResponse('formId', 'userId', 'userId'),
+    ).rejects.toThrow('Form not found');
+  });
+
+  it('should throw error when user is not the creator of the form in getIndividualAnswer', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'otherUserId' } as any);
+
+    await expect(
+      service.getIndividualResponse('formId', 'userId', 'userId'),
+    ).rejects.toThrow('User is not authorized to view form summary');
+  });
+
+  it('should throw error when form is not published in getIndividualAnswer', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId', isPublished: false } as any);
+
+    await expect(
+      service.getIndividualResponse('formId', 'userId', 'userId'),
+    ).rejects.toThrow('Form is not published');
+  });
+
+  it('should return questions response when all is valid', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      ...dummyForm,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
+
+      isPublished: true,
+    } as any);
+
+    const userId = 'userId';
+
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: userId,
+      isCompleted: true,
+    } as any);
+
+    expect(
+      await service.getIndividualResponse('formId', 'userId', 'userId'),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully get individual response',
+      data: expect.any(Object),
+    });
   });
 });

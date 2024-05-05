@@ -162,4 +162,14 @@ export class FormController {
   ) {
     return this.formService.exportFormAsCSV(formId, userId, res);
   }
+
+  @Roles(Role.CREATOR)
+  @Get('/summary/:formId/individual/:individualId')
+  getIndividualResponse(
+    @Param('formId') formId: string,
+    @CurrentUser('id') userId: string,
+    @Param('individualId') individualId: string,
+  ) {
+    return this.formService.getIndividualResponse(formId, userId, individualId);
+  }
 }
