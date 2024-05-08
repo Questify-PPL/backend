@@ -28,6 +28,12 @@ enum ExchangeStatus {
   REJECTED
 }
 
+enum ReportStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id                  String       @id @default(uuid())
   email               String       @unique
@@ -127,14 +133,19 @@ model Item {
 }
 
 model Report {
+  id         String @unique @default(uuid())
   toUserId   String
   toUser     User   @relation("to", fields: [toUserId], references: [id])
   fromUserId String
   fromUser   User   @relation("from", fields: [fromUserId], references: [id])
+  formId     String
+  form       Form   @relation(fields: [formId], references: [id])
 
-  message String
+  message   String
+  status    ReportStatus @default(PENDING)
+  createdAt DateTime     @default(now())
 
-  @@id([toUserId, fromUserId])
+  @@id([toUserId, fromUserId, formId])
 }
 
 enum PrizeType {
@@ -165,6 +176,8 @@ model Form {
   Section   Section[] // Better include Opening and Closing as section
   Question  Question[]
 
+  Report Report[]
+
   isWinnerProcessed Boolean @default(false)
   totalPity         Int     @default(0)
 }
@@ -190,6 +203,7 @@ model Participation {
   emailNotificationActive Boolean    @default(true)
   questionsAnswered       Int        @default(0)
   finalWinningChance      Float      @default(0)
+  respondentIsReported      Boolean    @default(false)
 
   @@id([respondentId, formId])
 }

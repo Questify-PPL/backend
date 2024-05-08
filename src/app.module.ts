@@ -13,6 +13,7 @@ import { TopupModule } from './topup/topup.module';
 import { WithdrawalModule } from './withdrawal/withdrawal.module';
 import { PityModule } from './pity/pity.module';
 import { LockModule } from './lock/lock.module';
+import { ReportModule } from './report/report.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { LockModule } from './lock/lock.module';
     WithdrawalModule,
     PityModule,
     LockModule,
+    ReportModule,
   ],
   controllers: [AppController],
   providers: [AppService],

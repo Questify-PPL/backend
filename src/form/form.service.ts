@@ -481,6 +481,7 @@ export class FormService {
       },
       select: {
         respondentId: true,
+        respondentIsReported: true,
         respondent: {
           select: {
             user: {
@@ -502,6 +503,7 @@ export class FormService {
         respondentId: individual.respondentId,
         email: individual.respondent.user.email,
         name: `${individual.respondent.user.firstName} ${individual.respondent.user.lastName}`,
+        isReported: individual.respondentIsReported,
       })),
     };
   }

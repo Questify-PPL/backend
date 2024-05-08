@@ -1,171 +1,48 @@
-import { PrismaClient, QuestionType } from '@prisma/client';
+import { Form, PrismaClient, QuestionType, User } from '@prisma/client';
 
 const prisma = new PrismaClient();
+const totalAdmins = 1;
+const totalRespondents = 3;
+const totalCreators = 1;
+const totalReport = Math.floor((totalCreators * totalRespondents) / 2);
 
 async function main() {
-  const admin = await prisma.user.upsert({
+  // Seed user data
+  await createAdmins(totalAdmins);
+  const respondents = await createRespondents(totalRespondents);
+  const creators = await createCreators(totalCreators);
+
+  // Seed shop data
+  await createItems();
+  await createVoucher(creators);
+
+  // Seed form data
+  const forms = await createForm(creators, respondents);
+  await createParticipation(forms, respondents);
+
+  // Seed report data
+  await createReports(totalReport, forms, { respondents, creator: creators });
+}
+
+async function createVoucher(creators: User[]) {
+  await prisma.voucher.upsert({
     where: {
-      email: 'admin@questify.com',
+      id: '1',
+    },
+    create: {
+      id: '1',
+      discount: 1000,
+      expiredAt: new Date('2024-12-31'),
+      userId: creators[0].id,
     },
     update: {
-      roles: ['ADMIN'],
-      firstName: 'Admin',
-      lastName: 'Questify Updated',
-      isVerified: true,
-    },
-    create: {
-      email: 'admin@questify.com',
-      firstName: 'Admin',
-      lastName: 'Questify',
-      password: '$2a$10$RErow0.VS.4ZKWF9hpvooerm/SKYDyOIqMTLGqQP/0QR6xtOLykPC', // admin
-      roles: ['ADMIN'],
-      isVerified: true,
-      hasCompletedProfile: true,
+      isUsed: false,
+      userId: creators[0].id,
     },
   });
+}
 
-  const respondent = await prisma.user.upsert({
-    where: {
-      email: 'respondent@questify.com',
-    },
-    update: {
-      roles: ['RESPONDENT'],
-      firstName: 'Respondent',
-      lastName: 'Questify Updated',
-      isVerified: true,
-    },
-    create: {
-      email: 'respondent@questify.com',
-      firstName: 'Respondent',
-      lastName: 'Questify',
-      password: '$2a$10$7G2CywZZcq5RpKM0AUNRB./Uh/0DDLippdmns3wgQYfis4g4yjitW', // respondent
-      roles: ['RESPONDENT'],
-      isVerified: true,
-    },
-  });
-
-  const respondent2 = await prisma.user.upsert({
-    where: {
-      email: 'respondent2@questify.com',
-    },
-    update: {
-      roles: ['RESPONDENT'],
-      firstName: 'Respondent',
-      lastName: 'Questify 2 Updated',
-      isVerified: true,
-    },
-    create: {
-      email: 'respondent2@questify.com',
-      firstName: 'Respondent',
-      lastName: 'Questify 2',
-      password: '$2a$10$7G2CywZZcq5RpKM0AUNRB./Uh/0DDLippdmns3wgQYfis4g4yjitW', // respondent
-      roles: ['RESPONDENT'],
-      isVerified: true,
-    },
-  });
-
-  const respondent3 = await prisma.user.upsert({
-    where: {
-      email: 'respondent3@questify.com',
-    },
-    update: {
-      roles: ['RESPONDENT'],
-      firstName: 'Respondent',
-      lastName: 'Questify 3 Updated',
-      isVerified: true,
-    },
-    create: {
-      email: 'respondent3@questify.com',
-      firstName: 'Respondent',
-      lastName: 'Questify 3',
-      password: '$2a$10$7G2CywZZcq5RpKM0AUNRB./Uh/0DDLippdmns3wgQYfis4g4yjitW', // respondent
-      roles: ['RESPONDENT'],
-      isVerified: true,
-    },
-  });
-
-  const creator = await prisma.user.upsert({
-    where: {
-      email: 'creator@questify.com',
-    },
-    update: {
-      roles: ['CREATOR'],
-      firstName: 'Creator',
-      lastName: 'Questify Updated',
-      isVerified: true,
-      credit: 10000000,
-    },
-    create: {
-      email: 'creator@questify.com',
-      firstName: 'Creator',
-      lastName: 'Questify',
-      password: '$2a$10$Fc34lQ4jUY3e7/Z7ZJTf5eeOqISojt9zZHcJxprfwur6BYYQXeex6', // creator
-      roles: ['CREATOR'],
-      isVerified: true,
-      credit: 10000000,
-    },
-  });
-
-  await prisma.respondent.upsert({
-    where: {
-      userId: admin.id,
-    },
-    create: {
-      userId: admin.id,
-    },
-    update: {},
-  });
-
-  await prisma.respondent.upsert({
-    where: {
-      userId: respondent.id,
-    },
-    create: {
-      userId: respondent.id,
-    },
-    update: {},
-  });
-
-  await prisma.respondent.upsert({
-    where: {
-      userId: respondent2.id,
-    },
-    create: {
-      userId: respondent2.id,
-    },
-    update: {},
-  });
-
-  await prisma.respondent.upsert({
-    where: {
-      userId: respondent3.id,
-    },
-    create: {
-      userId: respondent3.id,
-    },
-    update: {},
-  });
-
-  await prisma.creator.upsert({
-    where: {
-      userId: admin.id,
-    },
-    create: {
-      userId: admin.id,
-    },
-    update: {},
-  });
-
-  await prisma.creator.upsert({
-    where: {
-      userId: creator.id,
-    },
-    create: {
-      userId: creator.id,
-    },
-    update: {},
-  });
-
+async function createItems() {
   const itemsCount = await prisma.item.count();
 
   if (itemsCount == 0) {
@@ -202,27 +79,158 @@ async function main() {
       ],
     });
   }
+}
 
-  await prisma.voucher.upsert({
-    where: {
-      id: '1',
-    },
-    create: {
-      id: '1',
-      discount: 1000,
-      expiredAt: new Date('2024-12-31'),
-      userId: creator.id,
-    },
-    update: {
-      isUsed: false,
-      userId: creator.id,
-    },
-  });
+async function createAdmins(n: number) {
+  const admins = [];
 
+  for (let i = 0; i < n; i++) {
+    const admin = await prisma.user.upsert({
+      where: {
+        email: `admin${i}@questify.com`,
+      },
+      update: {
+        roles: ['ADMIN'],
+        firstName: `Admin ${i}`,
+        lastName: 'Questify Updated',
+        isVerified: true,
+      },
+      create: {
+        email: `admin${i}@questify.com`,
+        firstName: `Admin ${i}`,
+        lastName: 'Questify',
+        password:
+          '$2a$10$RErow0.VS.4ZKWF9hpvooerm/SKYDyOIqMTLGqQP/0QR6xtOLykPC', // admin
+        roles: ['ADMIN'],
+        isVerified: true,
+        hasCompletedProfile: true,
+      },
+    });
+
+    await prisma.respondent.upsert({
+      where: {
+        userId: admin.id,
+      },
+      create: {
+        userId: admin.id,
+      },
+      update: {},
+    });
+
+    await prisma.creator.upsert({
+      where: {
+        userId: admin.id,
+      },
+      create: {
+        userId: admin.id,
+      },
+      update: {},
+    });
+
+    await prisma.admin.upsert({
+      where: {
+        userId: admin.id,
+      },
+      create: {
+        userId: admin.id,
+      },
+      update: {},
+    });
+
+    admins.push(admin);
+  }
+
+  return admins;
+}
+
+async function createRespondents(n: number) {
+  const respondents = [];
+
+  for (let i = 0; i < n; i++) {
+    const respondent = await prisma.user.upsert({
+      where: {
+        email: `respondent${i}@questify.com`,
+      },
+      update: {
+        roles: ['RESPONDENT'],
+        firstName: `Respondent ${i}`,
+        lastName: 'Questify Updated',
+        isVerified: true,
+      },
+      create: {
+        email: `respondent${i}@questify.com`,
+        firstName: `Respondent ${i}`,
+        lastName: 'Questify',
+        password:
+          '$2a$10$7G2CywZZcq5RpKM0AUNRB./Uh/0DDLippdmns3wgQYfis4g4yjitW', // respondent
+        roles: ['RESPONDENT'],
+        isVerified: true,
+      },
+    });
+
+    await prisma.respondent.upsert({
+      where: {
+        userId: respondent.id,
+      },
+      create: {
+        userId: respondent.id,
+      },
+      update: {},
+    });
+
+    respondents.push(respondent);
+  }
+  return respondents;
+}
+
+async function createCreators(n: number) {
+  const creators = [];
+
+  for (let i = 0; i < n; i++) {
+    const creator = await prisma.user.upsert({
+      where: {
+        email: 'creator@questify.com',
+      },
+      update: {
+        roles: ['CREATOR'],
+        firstName: 'Creator',
+        lastName: 'Questify Updated',
+        isVerified: true,
+        credit: 10000000,
+      },
+      create: {
+        email: 'creator@questify.com',
+        firstName: 'Creator',
+        lastName: 'Questify',
+        password:
+          '$2a$10$Fc34lQ4jUY3e7/Z7ZJTf5eeOqISojt9zZHcJxprfwur6BYYQXeex6', // creator
+        roles: ['CREATOR'],
+        isVerified: true,
+        credit: 10000000,
+      },
+    });
+
+    await prisma.creator.upsert({
+      where: {
+        userId: creator.id,
+      },
+      create: {
+        userId: creator.id,
+      },
+      update: {},
+    });
+
+    creators.push(creator);
+  }
+
+  return creators;
+}
+
+async function createForm(creators: User[], respondents: User[]) {
   if (
     !(await prisma.form.findFirst({
       where: {
-        creatorId: creator.id,
+        creatorId: creators[0].id,
         title: 'Oreo Official: Exploring Consumer Insights on Oreo Products',
       },
     }))
@@ -248,21 +256,21 @@ async function main() {
               'Please share what factors influenced your decision to buy the Oreo Special Edition, such as flavor, packaging, advertising, or other reasons',
             answer: [
               {
-                respondentId: respondent.id,
+                respondentId: respondents[0].id,
                 answer: {
                   answer:
                     'I bought the Oreo Special Edition because I saw an advertisement on Instagram that featured a new flavor I wanted to try. The packaging design also caught my eye, and I was curious about the limited edition release.',
                 },
               },
               {
-                respondentId: respondent2.id,
+                respondentId: respondents[1].id,
                 answer: {
                   answer:
                     'I purchased the Oreo Special Edition because I read positive reviews online about the new flavor. The packaging was also appealing, and I wanted to try the product for myself.',
                 },
               },
               {
-                respondentId: respondent3.id,
+                respondentId: respondents[2].id,
                 answer: {
                   answer:
                     'I decided to buy the Oreo Special Edition after receiving a recommendation from a friend. The unique flavor and packaging design were intriguing, and I wanted to experience it firsthand.',
@@ -281,15 +289,15 @@ async function main() {
             choice: ['1', '2', '3', '4', '5'],
             answer: [
               {
-                respondentId: respondent.id,
+                respondentId: respondents[0].id,
                 answer: ['5'],
               },
               {
-                respondentId: respondent2.id,
+                respondentId: respondents[1].id,
                 answer: ['4'],
               },
               {
-                respondentId: respondent3.id,
+                respondentId: respondents[2].id,
                 answer: ['3'],
               },
             ],
@@ -311,19 +319,19 @@ async function main() {
               "Consider the past month and indicate how often you encountered Oreo's online ads, whether on social media, websites, or video platforms.",
             answer: [
               {
-                respondentId: respondent.id,
+                respondentId: respondents[0].id,
                 answer: {
                   answer: 'I saw Oreo ads online about once a week.',
                 },
               },
               {
-                respondentId: respondent2.id,
+                respondentId: respondents[1].id,
                 answer: {
                   answer: 'I noticed Oreo ads online a few times a month.',
                 },
               },
               {
-                respondentId: respondent3.id,
+                respondentId: respondents[2].id,
                 answer: {
                   answer: 'I rarely saw Oreo ads online in the past month.',
                 },
@@ -340,21 +348,21 @@ async function main() {
             isRequired: true,
             answer: [
               {
-                respondentId: respondent.id,
+                respondentId: respondents[0].id,
                 answer: {
                   answer:
                     'The vibrant colors and playful animations in Oreo ads always grab my attention. The ads are visually appealing and make me want to learn more about the product.',
                 },
               },
               {
-                respondentId: respondent2.id,
+                respondentId: respondents[1].id,
                 answer: {
                   answer:
                     'I find the storytelling in Oreo ads to be captivating. The narratives are engaging and create an emotional connection with the audience.',
                 },
               },
               {
-                respondentId: respondent3.id,
+                respondentId: respondents[2].id,
                 answer: {
                   answer:
                     'The interactive elements in Oreo ads are what stand out to me. I enjoy participating in quizzes, games, and other activities that are part of the ad experience.',
@@ -380,15 +388,15 @@ async function main() {
             ],
             answer: [
               {
-                respondentId: respondent.id,
+                respondentId: respondents[0].id,
                 answer: ['Instagram', 'YouTube'],
               },
               {
-                respondentId: respondent2.id,
+                respondentId: respondents[1].id,
                 answer: ['Facebook', 'Twitter'],
               },
               {
-                respondentId: respondent3.id,
+                respondentId: respondents[2].id,
                 answer: ['TikTok', 'Snapchat'],
               },
             ],
@@ -408,21 +416,21 @@ async function main() {
               'Considering potential future flavor innovations such as Matcha Green Tea, Salted Caramel, or Spicy Chili, please share which one appeals to you the most and why.',
             answer: [
               {
-                respondentId: respondent.id,
+                respondentId: respondents[0].id,
                 answer: {
                   answer:
                     'I would love to try the Salted Caramel Oreo flavor. The combination of sweet and salty flavors sounds delicious, and I think it would be a unique addition to the Oreo lineup.',
                 },
               },
               {
-                respondentId: respondent2.id,
+                respondentId: respondents[1].id,
                 answer: {
                   answer:
                     'I am most excited about the Spicy Chili Oreo flavor. I enjoy spicy foods and think the heat would complement the sweetness of the cookie.',
                 },
               },
               {
-                respondentId: respondent3.id,
+                respondentId: respondents[2].id,
                 answer: {
                   answer:
                     'Matcha Green Tea Oreo is the flavor I am looking forward to trying. I appreciate the earthy and slightly bitter taste of matcha, and I think it would make a great Oreo flavor.',
@@ -446,15 +454,15 @@ async function main() {
             ],
             answer: [
               {
-                respondentId: respondent.id,
+                respondentId: respondents[0].id,
                 answer: ['Original'],
               },
               {
-                respondentId: respondent2.id,
+                respondentId: respondents[1].id,
                 answer: ['Peanut Butter'],
               },
               {
-                respondentId: respondent3.id,
+                respondentId: respondents[2].id,
                 answer: ['Original'],
               },
             ],
@@ -469,9 +477,11 @@ async function main() {
       },
     ];
 
+    const forms = [];
+
     const publishedForm = await prisma.form.create({
       data: {
-        creatorId: creator.id,
+        creatorId: creators[0].id,
         title: 'Oreo Official: Exploring Consumer Insights on Oreo Products',
         prize: 1000000,
         prizeType: 'EVEN',
@@ -521,27 +531,53 @@ async function main() {
       },
     });
 
-    await prisma.participation.createMany({
-      data: [
-        {
-          formId: publishedForm.id,
-          respondentId: respondent.id,
-          questionsAnswered: 7,
-          isCompleted: true,
+    forms.push(publishedForm);
+
+    return forms;
+  }
+}
+
+async function createParticipation(forms: Form[], respondents: User[]) {
+  const participations = respondents.map((respondent) => ({
+    formId: forms[0].id,
+    respondentId: respondent.id,
+    questionsAnswered: 7,
+    isCompleted: true,
+    respondentIsReported: false,
+  }));
+
+  await prisma.participation.createMany({
+    data: participations,
+  });
+}
+
+async function createReports(
+  n: number,
+  forms: Form[],
+  user: { respondents: User[]; creator: User[] },
+) {
+  const form = forms[0];
+
+  for (let i = 0; i < n; i++) {
+    await prisma.report.create({
+      data: {
+        formId: form.id,
+        fromUserId: user.creator[0].id,
+        toUserId: user.respondents[i].id,
+        message: 'Inappropriate content',
+      },
+    });
+
+    await prisma.participation.update({
+      where: {
+        respondentId_formId: {
+          formId: form.id,
+          respondentId: user.respondents[i].id,
         },
-        {
-          formId: publishedForm.id,
-          respondentId: respondent2.id,
-          questionsAnswered: 7,
-          isCompleted: true,
-        },
-        {
-          formId: publishedForm.id,
-          respondentId: respondent3.id,
-          questionsAnswered: 7,
-          isCompleted: true,
-        },
-      ],
+      },
+      data: {
+        respondentIsReported: true,
+      },
     });
   }
 }
