@@ -155,7 +155,7 @@ export class ShopService {
       '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
     >,
   ) {
-    const [user, _creator, payment] = await Promise.all([
+    const [user, creator, payment] = await Promise.all([
       await ctx.user.update({
         data: {
           credit: {
@@ -189,6 +189,7 @@ export class ShopService {
     return {
       ...payment,
       userBalance: user.credit,
+      emptyForms: creator.emptyForms,
     };
   }
 }
