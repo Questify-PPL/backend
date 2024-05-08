@@ -380,33 +380,38 @@ describe('PityService', () => {
     });
 
     it("should calculate winning chance correctly when hasn't completed the form", () => {
-      const respondent = { ...respondents[0], pity: 0 };
-      const form = { ...forms[1], prizeType: PrizeType.LUCKY, totalPity: 0 };
+      const form = { ...forms[1], prizeType: PrizeType.LUCKY, totalPity: 150 };
       const participation = { ...participations[0], isCompleted: false };
 
+      const { pity: respondentPity } = respondents[0];
+      const { totalPity: totalPity } = form;
+
       const result = service.calculateWinningChance(
-        respondent,
+        respondents[0],
         form,
         participation.isCompleted,
         participation.finalWinningChance,
       );
-      expect(result).toBe(100);
+      expect(result).toBe(
+        ((respondentPity + 1) / (respondentPity + 1 + totalPity)) * 100,
+      );
     });
 
-    it('should return 100 and not throw error when division by zero', () => {
+    it('should calculate winning chance correctly for form with zero total pity', () => {
+      const form = { ...forms[1], prizeType: PrizeType.LUCKY, totalPity: 0 };
       const participation = { ...participations[0], isCompleted: false };
 
       const { pity: respondentPity } = respondents[0];
-      const { totalPity: totalPity } = forms[0];
+      const { totalPity: totalPity } = form;
 
       const result = service.calculateWinningChance(
         respondents[0],
-        forms[0],
+        form,
         participation.isCompleted,
         participation.finalWinningChance,
       );
       expect(result).toBe(
-        (respondentPity / (respondentPity + totalPity)) * 100,
+        ((respondentPity + 1) / (respondentPity + 1 + totalPity)) * 100,
       );
     });
   });
@@ -447,7 +452,7 @@ describe('PityService', () => {
             },
             data: {
               totalPity: {
-                increment: respondents[0].pity,
+                increment: respondents[0].pity + 1,
               },
             },
           });
