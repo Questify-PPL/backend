@@ -11,8 +11,11 @@ import {
 import {
   CreateFormDTO,
   FormQuestion,
+  GroupedQuestions,
   Question,
   QuestionAnswer,
+  SectionWithQuestions,
+  Statistics,
   UpdateFormDTO,
   UpdateParticipationDTO,
 } from 'src/dto';
@@ -140,7 +143,7 @@ export class FormService {
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
-    await this.validateUserOnForm(formId, userId, true);
+    await this.validateUserOnForm(formId, userId);
 
     if (updateFormDTO.formQuestions) this.validateFormQuestions(formQuestions);
 
@@ -344,7 +347,7 @@ export class FormService {
         return answer.answer;
       });
 
-      let statistics;
+      let statistics: Statistics;
 
       if (questionType === 'RADIO' || questionType === 'CHECKBOX') {
         const choices =
@@ -624,11 +627,7 @@ export class FormService {
     return returnLatestForm;
   }
 
-  private async validateUserOnForm(
-    formId: string,
-    userId: string,
-    isUpdating = false,
-  ) {
+  private async validateUserOnForm(formId: string, userId: string) {
     const form = await this.prismaService.form.findUnique({
       where: {
         id: formId,
@@ -642,10 +641,6 @@ export class FormService {
 
     if (form.creatorId !== userId) {
       throw new BadRequestException('User is not authorized to modify form');
-    }
-
-    if (isUpdating && form.isPublished) {
-      throw new BadRequestException('Form is already published');
     }
   }
 
@@ -715,6 +710,7 @@ export class FormService {
       section = await this.prismaService.section.create({
         data: {
           name: formQuestion.sectionName,
+          number: formQuestion.number,
           ...(formQuestion.sectionDescription && {
             description: formQuestion.sectionDescription,
           }),
@@ -733,6 +729,7 @@ export class FormService {
           },
           data: {
             name: formQuestion.sectionName,
+            number: formQuestion.number,
             ...(formQuestion.sectionDescription && {
               description: formQuestion.sectionDescription,
             }),
@@ -759,6 +756,7 @@ export class FormService {
       newOrUpdatedQuestion = await this.prismaService.question.create({
         data: {
           question: question.question,
+          number: question.number,
           questionTypeName: question.questionTypeName,
           ...(question.description && {
             description: question.description,
@@ -799,6 +797,7 @@ export class FormService {
           },
           data: {
             question: question.question,
+            number: question.number,
             ...(question.description && {
               description: question.description,
             }),
@@ -889,6 +888,12 @@ export class FormService {
           previousQuestionType,
           'delete',
         );
+        await this.prismaService.answer.deleteMany({
+          where: {
+            formId: formId,
+            questionId: questionId,
+          },
+        });
       }
       await updateOrDelete(this.prismaService, questionType, 'create');
 
@@ -1077,7 +1082,9 @@ export class FormService {
         return acc;
       },
       [],
-    );
+    ).sort((a, b) => {
+      return a.number - b.number;
+    });
 
     const groupedQuestion = [
       openingSection &&
@@ -1238,7 +1245,7 @@ export class FormService {
 
   private async groupBySectionId(
     Section: Section[],
-    acc: any[],
+    acc: GroupedQuestions,
     question: QuestionPrisma & {
       Radio: Radio;
       Checkbox: Checkbox;
@@ -1255,7 +1262,7 @@ export class FormService {
 
       // group by sectionId
       const sectionIndex = acc.findIndex(
-        (question) => question.sectionId === sectionId,
+        (question: SectionWithQuestions) => question.sectionId === sectionId,
       );
 
       if (sectionIndex === -1) {
@@ -1264,7 +1271,10 @@ export class FormService {
           questions: [toPut],
         });
       } else {
-        acc[sectionIndex].questions.push(toPut);
+        (acc[sectionIndex] as SectionWithQuestions).questions.push(toPut);
+        (acc[sectionIndex] as SectionWithQuestions).questions.sort(
+          (a, b) => a.number - b.number,
+        );
       }
     } else {
       acc.push(toPut);

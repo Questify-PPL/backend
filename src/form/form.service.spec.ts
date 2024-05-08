@@ -37,6 +37,7 @@ describe('FormService', () => {
       {
         questionType: 'RADIO',
         questionId: 1,
+        number: 1,
         isRequired: true,
         question: 'Question 1',
         Radio: {
@@ -59,6 +60,7 @@ describe('FormService', () => {
       {
         questionType: 'CHECKBOX',
         questionId: 2,
+        number: 2,
         sectionId: 1,
         isRequired: true,
         question: 'Question 2',
@@ -82,6 +84,7 @@ describe('FormService', () => {
       {
         questionType: 'TEXT',
         questionId: 3,
+        number: 3,
         sectionId: 1,
         isRequired: true,
         question: 'Question 3',
@@ -105,6 +108,7 @@ describe('FormService', () => {
       {
         questionType: 'RADIO',
         questionId: 4,
+        number: 4,
         sectionId: 1,
         isRequired: true,
         question: 'Question 2',
@@ -121,6 +125,7 @@ describe('FormService', () => {
       {
         name: 'Section 1',
         sectionId: 1,
+        number: 1,
         description: 'Description',
         Question: [
           {
@@ -727,34 +732,6 @@ describe('FormService', () => {
     await expect(
       service.updateForm('formId', 'userId', updateDTO as any),
     ).rejects.toThrow('Question is required for DEFAULT type');
-  });
-
-  it('should throw an error if the form is already been published in update form', async () => {
-    jest
-      .spyOn(prismaService.form, 'findUnique')
-      .mockResolvedValue({ creatorId: 'userId', isPublished: true } as any);
-
-    const updateDTO = {
-      title: '',
-      prize: 20000,
-      prizeType: 'LUCKY',
-      maxWinner: 1,
-      formQuestions: [
-        {
-          type: 'DEFAULT',
-          question: {
-            questionType: 'RADIO',
-            isRequired: true,
-            question: 'Question 2',
-            choice: ['A', 'B', 'C', 'D', 'E'],
-          },
-        },
-      ],
-    };
-
-    await expect(
-      service.updateForm('formId', 'userId', updateDTO as any),
-    ).rejects.toThrow('Form is already published');
   });
 
   it('should call prismaService.form.update with the correct arguments to make form drafted again', async () => {
