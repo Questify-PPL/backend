@@ -78,9 +78,10 @@ export class PityService {
       return 100;
     }
 
-    const divisor = isCompleted ? totalPity : respondentPity + totalPity;
+    const dividend = isCompleted ? respondentPity : respondentPity + 1;
+    const divisor = isCompleted ? totalPity : respondentPity + 1 + totalPity;
 
-    return divisor === 0 ? 100 : (respondentPity / divisor) * 100;
+    return (dividend / divisor) * 100;
   }
 
   async updatePityAfterParticipation(formId: string, userId: string) {
@@ -102,7 +103,7 @@ export class PityService {
         },
         data: {
           totalPity: {
-            increment: updatedUser.pity - 1,
+            increment: updatedUser.pity,
           },
         },
       });

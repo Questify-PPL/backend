@@ -1006,6 +1006,7 @@ export class FormService {
           questionAmount: participation.form.Question.length,
           winningChance,
           winningStatus,
+          winnerAmount: winnerIds.length,
         },
         [
           'isDraft',
