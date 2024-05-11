@@ -79,6 +79,10 @@ describe('FormService', () => {
             respondentId: 'userId',
             answer: ['A'],
           },
+          {
+            respondentId: 'userId',
+            answer: null,
+          },
         ],
       },
       {

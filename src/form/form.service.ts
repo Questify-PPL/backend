@@ -343,7 +343,9 @@ export class FormService {
 
     form.Question.forEach((question) => {
       const questionType = question.questionType;
-      const questionAnswers = question.Answer.map((answer) => {
+      const questionAnswers = question.Answer.filter((answer) => {
+        return answer.answer;
+      }).map((answer) => {
         return answer.answer;
       });
 
@@ -423,6 +425,8 @@ export class FormService {
       const occurenceDict = {};
 
       question.Answer.map((answer) => {
+        if (!answer.answer) return;
+
         if (
           question.questionType === 'RADIO' ||
           question.questionType === 'CHECKBOX'

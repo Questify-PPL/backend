@@ -182,6 +182,50 @@ describe('ReportService', () => {
     expect(response).toEqual(report);
   });
 
+  it('should update specific report when report is rejected', async () => {
+    const report = {
+      toUserId: 'b28e00b9-6162-4f8a-93d3-925a62c89f9a',
+      fromUserId: 'b28e00b9-6162-4f8a-93d3-925a62c89f9a',
+      formId: 'ba8e528b-1c22-41b8-9ac1-23592d3bce58',
+      message: 'creatornya gk jelas',
+      status: ReportStatus.PENDING,
+      createdAt: new Date('2024-04-27T06:36:41.861Z'),
+    };
+
+    const updatedReport = {
+      ...report,
+      status: ReportStatus.REJECTED,
+    };
+
+    const findUniqueMock = prismaService.report.findUnique as jest.Mock;
+    findUniqueMock.mockResolvedValue(report);
+
+    jest
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        const prismaMock = {
+          report: {
+            update: jest.fn().mockResolvedValue(updatedReport),
+            aggregate: jest.fn(),
+          },
+          user: {
+            update: jest.fn(),
+          },
+        };
+
+        return prisma(prismaMock as any);
+      });
+
+    const id = 'someId';
+
+    const updateReportDto = {
+      isApproved: false,
+    };
+
+    const response = await service.update(id, updateReportDto);
+    expect(response).toEqual(updatedReport);
+  });
+
   it('should throw not found error when update invalid report', async () => {
     const id = 'someId';
     const updateReportDto = {
