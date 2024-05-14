@@ -11,18 +11,27 @@ import {
 import {
   CreateFormDTO,
   FormQuestion,
+  GroupedQuestions,
   Question,
   QuestionAnswer,
+  SectionWithQuestions,
+  Statistics,
   UpdateFormDTO,
   UpdateParticipationDTO,
 } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Parser } from 'json2csv';
 import { Response } from 'express';
+import { LockService } from 'src/lock/lock.service';
+import { PityService } from 'src/pity/pity.service';
 
 @Injectable()
 export class FormService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly lockService: LockService,
+    private readonly pityService: PityService,
+  ) {}
 
   /*  ======================================================
         Pembubatan Kuesioner
@@ -134,7 +143,7 @@ export class FormService {
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
-    await this.validateUserOnForm(formId, userId, true);
+    await this.validateUserOnForm(formId, userId);
 
     if (updateFormDTO.formQuestions) this.validateFormQuestions(formQuestions);
 
@@ -308,6 +317,10 @@ export class FormService {
         },
       });
 
+      if (isCompleted) {
+        this.pityService.updatePityAfterParticipation(formId, userId);
+      }
+
       return {
         statusCode: 200,
         message: 'Successfully update participation',
@@ -330,11 +343,13 @@ export class FormService {
 
     form.Question.forEach((question) => {
       const questionType = question.questionType;
-      const questionAnswers = question.Answer.map((answer) => {
+      const questionAnswers = question.Answer.filter((answer) => {
+        return answer.answer;
+      }).map((answer) => {
         return answer.answer;
       });
 
-      let statistics;
+      let statistics: Statistics;
 
       if (questionType === 'RADIO' || questionType === 'CHECKBOX') {
         const choices =
@@ -410,6 +425,8 @@ export class FormService {
       const occurenceDict = {};
 
       question.Answer.map((answer) => {
+        if (!answer.answer) return;
+
         if (
           question.questionType === 'RADIO' ||
           question.questionType === 'CHECKBOX'
@@ -471,13 +488,30 @@ export class FormService {
       },
       select: {
         respondentId: true,
+        respondentIsReported: true,
+        respondent: {
+          select: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
     });
 
     return {
       statusCode: 200,
       message: 'Successfully get all individual',
-      data: allIndividuals.map((individual) => individual.respondentId),
+      data: allIndividuals.map((individual) => ({
+        respondentId: individual.respondentId,
+        email: individual.respondent.user.email,
+        name: `${individual.respondent.user.firstName} ${individual.respondent.user.lastName}`,
+        isReported: individual.respondentIsReported,
+      })),
     };
   }
 
@@ -496,7 +530,7 @@ export class FormService {
 
       // Send response
 
-      res.status(200).send(csv);
+      res.status(201).send(csv);
     } catch (error) {
       console.log(error.response);
 
@@ -504,6 +538,23 @@ export class FormService {
         error.message ? error.message : 'Failed to export form as CSV',
       );
     }
+  }
+
+  async getIndividualResponse(
+    formId: string,
+    userId: string,
+    respondentId: string,
+  ) {
+    const [_, form] = await Promise.all([
+      await this.validateVisibility(formId, userId),
+      await this.getFormById(formId, 'respondent', respondentId),
+    ]);
+
+    return {
+      statusCode: 200,
+      message: 'Successfully get individual response',
+      data: form.data.questions,
+    };
   }
 
   /*  ======================================================
@@ -580,11 +631,7 @@ export class FormService {
     return returnLatestForm;
   }
 
-  private async validateUserOnForm(
-    formId: string,
-    userId: string,
-    isUpdating = false,
-  ) {
+  private async validateUserOnForm(formId: string, userId: string) {
     const form = await this.prismaService.form.findUnique({
       where: {
         id: formId,
@@ -598,10 +645,6 @@ export class FormService {
 
     if (form.creatorId !== userId) {
       throw new BadRequestException('User is not authorized to modify form');
-    }
-
-    if (isUpdating && form.isPublished) {
-      throw new BadRequestException('Form is already published');
     }
   }
 
@@ -671,6 +714,7 @@ export class FormService {
       section = await this.prismaService.section.create({
         data: {
           name: formQuestion.sectionName,
+          number: formQuestion.number,
           ...(formQuestion.sectionDescription && {
             description: formQuestion.sectionDescription,
           }),
@@ -689,6 +733,7 @@ export class FormService {
           },
           data: {
             name: formQuestion.sectionName,
+            number: formQuestion.number,
             ...(formQuestion.sectionDescription && {
               description: formQuestion.sectionDescription,
             }),
@@ -715,6 +760,7 @@ export class FormService {
       newOrUpdatedQuestion = await this.prismaService.question.create({
         data: {
           question: question.question,
+          number: question.number,
           questionTypeName: question.questionTypeName,
           ...(question.description && {
             description: question.description,
@@ -755,6 +801,7 @@ export class FormService {
           },
           data: {
             question: question.question,
+            number: question.number,
             ...(question.description && {
               description: question.description,
             }),
@@ -845,6 +892,12 @@ export class FormService {
           previousQuestionType,
           'delete',
         );
+        await this.prismaService.answer.deleteMany({
+          where: {
+            formId: formId,
+            questionId: questionId,
+          },
+        });
       }
       await updateOrDelete(this.prismaService, questionType, 'create');
 
@@ -909,25 +962,52 @@ export class FormService {
           include: {
             Question: true,
             Winner: true,
+            Participation: true,
           },
         },
         questionsAnswered: true,
         isCompleted: true,
+        respondent: true,
+        finalWinningChance: true,
       },
     });
 
     const forms = participations.map(async (participation) => {
-      const winningChance = this.decideWinningChance();
-
-      const winningStatus = participation.form.Winner.some(
-        (winner) => winner.respondentId === userId,
+      const formId = participation.form.id;
+      let winnerIds = participation.form.Winner.map(
+        (winner) => winner.respondentId,
       );
+      const lockKey = `form-${formId}`;
+
+      const acquired = this.lockService.acquireLock(lockKey);
+
+      if (acquired) {
+        const processedWinnerIds = await this.pityService.processWinner(
+          participation.form,
+        );
+
+        if (processedWinnerIds) {
+          winnerIds = processedWinnerIds;
+        }
+
+        this.lockService.releaseLock(lockKey);
+      }
+
+      const winningChance = this.pityService.calculateWinningChance(
+        participation.respondent,
+        participation.form,
+        participation.isCompleted,
+        participation.finalWinningChance,
+      );
+
+      const winningStatus = winnerIds.includes(userId);
 
       return this.excludeKeys(
         {
           ...(this.excludeKeys(participation.form, [
             'Question',
             'Winner',
+            'Participation',
           ]) as Form),
           questionFilled: participation.questionsAnswered,
           isCompleted:
@@ -937,8 +1017,16 @@ export class FormService {
           questionAmount: participation.form.Question.length,
           winningChance,
           winningStatus,
+          winnerAmount: winnerIds.length,
         },
-        ['isDraft', 'isPublished', 'maxParticipant', 'updatedAt'],
+        [
+          'isDraft',
+          'isPublished',
+          'maxParticipant',
+          'updatedAt',
+          'isWinnerProcessed',
+          'totalPity',
+        ],
       );
     });
 
@@ -957,6 +1045,9 @@ export class FormService {
     userId?: string,
     removeAnswer = true,
   ) {
+    const openingSection = form.Section.find(({ name }) => name === 'Opening');
+    const endingSection = form.Section.find(({ name }) => name === 'Ending');
+
     const groupQuestionBySectionIfExist = form.Question.reduce(
       (acc, question) => {
         const questionWithChoice = this.excludeKeys(
@@ -996,7 +1087,29 @@ export class FormService {
         return acc;
       },
       [],
-    );
+    ).sort((a, b) => {
+      return a.number - b.number;
+    });
+
+    const groupedQuestion = [
+      openingSection &&
+        this.excludeKeys(
+          {
+            ...openingSection,
+            questions: [],
+          },
+          ['formId'],
+        ),
+      ...groupQuestionBySectionIfExist,
+      endingSection &&
+        this.excludeKeys(
+          {
+            ...endingSection,
+            questions: [],
+          },
+          ['formId'],
+        ),
+    ];
 
     let participation;
 
@@ -1014,7 +1127,7 @@ export class FormService {
     return this.excludeKeys(
       {
         ...form,
-        questions: groupQuestionBySectionIfExist,
+        questions: groupedQuestion,
         ...(participation && {
           canRespond:
             !participation.isCompleted &&
@@ -1135,13 +1248,9 @@ export class FormService {
     });
   }
 
-  private decideWinningChance() {
-    return 0;
-  }
-
   private async groupBySectionId(
     Section: Section[],
-    acc: any[],
+    acc: GroupedQuestions,
     question: QuestionPrisma & {
       Radio: Radio;
       Checkbox: Checkbox;
@@ -1158,7 +1267,7 @@ export class FormService {
 
       // group by sectionId
       const sectionIndex = acc.findIndex(
-        (question) => question.sectionId === sectionId,
+        (question: SectionWithQuestions) => question.sectionId === sectionId,
       );
 
       if (sectionIndex === -1) {
@@ -1167,7 +1276,10 @@ export class FormService {
           questions: [toPut],
         });
       } else {
-        acc[sectionIndex].questions.push(toPut);
+        (acc[sectionIndex] as SectionWithQuestions).questions.push(toPut);
+        (acc[sectionIndex] as SectionWithQuestions).questions.sort(
+          (a, b) => a.number - b.number,
+        );
       }
     } else {
       acc.push(toPut);
@@ -1189,8 +1301,6 @@ export class FormService {
       id: question.questionId,
       title: question.question,
     }));
-
-    console.log(header);
 
     // Retrieve all respondent ID
     const respondentIds = await this.prismaService.participation.findMany({

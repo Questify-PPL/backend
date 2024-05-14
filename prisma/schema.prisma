@@ -28,6 +28,12 @@ enum ExchangeStatus {
   REJECTED
 }
 
+enum ReportStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id                  String       @id @default(uuid())
   email               String       @unique
@@ -40,7 +46,7 @@ model User {
   gender              String?
   companyName         String?
   birthDate           DateTime?
-  credit              Int          @default(0)
+  credit              Float        @default(0)
   isVerified          Boolean      @default(false)
   isBlocked           Boolean      @default(false)
   hasCompletedProfile Boolean      @default(false)
@@ -64,6 +70,7 @@ model Creator {
   user   User   @relation(fields: [userId], references: [id])
 
   emailNotificationActive Boolean        @default(true)
+  emptyForms              Int            @default(0)
   Form                    Form[]
   InvoiceTopup            InvoiceTopup[]
 }
@@ -80,15 +87,15 @@ model Respondent {
 model Payment {
   id     String @id @default(uuid())
   itemId Int
-  item   Item   @relation(fields: [itemId], references: [id])
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   totalPayment Int
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  Voucher   Voucher? @relation(fields: [voucherId], references: [id])
+  Voucher   Voucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
   voucherId String?
 }
 
@@ -97,19 +104,19 @@ enum ItemCategory {
 }
 
 model Voucher {
-  id         String    @id @default(uuid())
-  discount   Int
-  expiredAt  DateTime
-  isUsed     Boolean   @default(false)
-  usedAt     DateTime?
-  usedBy     User?     @relation(fields: [userId], references: [id])
+  id        String    @id @default(uuid())
+  discount  Int
+  expiredAt DateTime
+  isUsed    Boolean   @default(false)
+  usedAt    DateTime?
+
+  userId     String?
+  usedBy     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   usedItemId Int?
-  usedItem   Item?     @relation(fields: [itemId], references: [id])
+  usedItem   Item?   @relation(fields: [usedItemId], references: [id], onDelete: SetNull)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  userId    String?
-  itemId    Int?
   Payment   Payment[]
 }
 
@@ -120,19 +127,25 @@ model Item {
   category                ItemCategory @default(BASIC_PLAN)
   advertisedOriginalPrice Int?
   description             String
+  emptyForms              Int          @default(0)
   Payment                 Payment[]
   Voucher                 Voucher[]
 }
 
 model Report {
+  id         String @unique @default(uuid())
   toUserId   String
   toUser     User   @relation("to", fields: [toUserId], references: [id])
   fromUserId String
   fromUser   User   @relation("from", fields: [fromUserId], references: [id])
+  formId     String
+  form       Form   @relation(fields: [formId], references: [id])
 
-  message String
+  message   String
+  status    ReportStatus @default(PENDING)
+  createdAt DateTime     @default(now())
 
-  @@id([toUserId, fromUserId])
+  @@id([toUserId, fromUserId, formId])
 }
 
 enum PrizeType {
@@ -162,12 +175,18 @@ model Form {
   endedAt   DateTime?
   Section   Section[] // Better include Opening and Closing as section
   Question  Question[]
+
+  Report Report[]
+
+  isWinnerProcessed Boolean @default(false)
+  totalPity         Int     @default(0)
 }
 
 model Section {
   formId    String
   form      Form   @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   sectionId Int    @default(autoincrement())
+  number    Int    @default(0)
 
   name        String
   description String?
@@ -184,6 +203,8 @@ model Participation {
   isCompleted             Boolean    @default(false)
   emailNotificationActive Boolean    @default(true)
   questionsAnswered       Int        @default(0)
+  finalWinningChance      Float      @default(0)
+  respondentIsReported      Boolean    @default(false)
 
   @@id([respondentId, formId])
 }
@@ -212,6 +233,7 @@ model Question {
   form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   questionId Int @default(autoincrement())
+  number     Int @default(0)
 
   questionType     QuestionType
   questionTypeName String

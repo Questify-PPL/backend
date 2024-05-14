@@ -9,7 +9,7 @@ import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
 // Configure the SDK to export telemetry data to the console
 // Enable all auto-instrumentations from the meta package
 const exporterOptions = {
-  url: 'http://34.68.24.231:4318/v1/traces',
+  url: 'http://34.124.198.50:4318/v1/traces',
 };
 
 const traceExporter = new OTLPTraceExporter(exporterOptions);

@@ -114,6 +114,16 @@ describe('ShopService', () => {
         voucherId: 'voucherId',
       } as any;
 
+      const mockUser = {
+        id: userId,
+        credit: 1000,
+        emptyForms: 0,
+      };
+
+      jest
+        .spyOn(prismaService.user, 'findUnique')
+        .mockResolvedValueOnce(mockUser as any);
+
       jest
         .spyOn(prismaService.item, 'findUnique')
         .mockResolvedValueOnce(dummyItem as any);
@@ -129,6 +139,11 @@ describe('ShopService', () => {
             user: {
               update: jest.fn().mockResolvedValue({
                 id: userId,
+              }),
+            },
+            creator: {
+              update: jest.fn().mockResolvedValue({
+                userId: userId,
               }),
             },
             payment: {
@@ -162,11 +177,9 @@ describe('ShopService', () => {
       .spyOn(prismaService.item, 'findUnique')
       .mockResolvedValueOnce(null as any);
 
-    try {
-      await service.buyItem(userId, buyItemDTO);
-    } catch (e) {
-      expect(e.message).toEqual('Item not found');
-    }
+    await expect(service.buyItem(userId, buyItemDTO)).rejects.toThrow(
+      'Item not found',
+    );
   });
 
   it('should throw an error if the voucher does not exist', async () => {
@@ -192,11 +205,9 @@ describe('ShopService', () => {
         return prisma(prismaMock as any);
       });
 
-    try {
-      await service.buyItem(userId, buyItemDTO);
-    } catch (e) {
-      expect(e.message).toEqual('Voucher not found');
-    }
+    await expect(service.buyItem(userId, buyItemDTO)).rejects.toThrow(
+      'Voucher not found',
+    );
   });
 
   it('should throw an error if the voucher is used', async () => {
@@ -225,10 +236,61 @@ describe('ShopService', () => {
         return prisma(prismaMock as any);
       });
 
-    try {
-      await service.buyItem(userId, buyItemDTO);
-    } catch (e) {
-      expect(e.message).toEqual('Voucher already used');
-    }
+    await expect(service.buyItem(userId, buyItemDTO)).rejects.toThrow(
+      'Voucher already used',
+    );
+  });
+
+  it('should throw an error if credit is not enough', async () => {
+    const userId = 'userId';
+    const buyItemDTO = {
+      itemId: 'itemId',
+      voucherId: 'voucherId',
+    } as any;
+
+    const mockUser = {
+      id: userId,
+      credit: 0,
+      emptyForms: 0,
+    };
+
+    jest
+      .spyOn(prismaService.user, 'findUnique')
+      .mockResolvedValueOnce(mockUser as any);
+
+    jest.spyOn(prismaService.item, 'findUnique').mockResolvedValueOnce({
+      ...dummyItem,
+      price: 1000,
+    } as any);
+
+    jest
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        const prismaMock = {
+          user: {
+            update: jest.fn().mockResolvedValue({
+              id: userId,
+            }),
+          },
+          creator: {
+            update: jest.fn().mockResolvedValue({
+              userId: userId,
+            }),
+          },
+          payment: {
+            create: jest.fn().mockResolvedValue(dummyPayment),
+          },
+          voucher: {
+            findUnique: jest.fn().mockResolvedValue(dummyVoucher),
+            update: jest.fn().mockResolvedValue(dummyVoucher),
+          },
+        };
+
+        return prisma(prismaMock as any);
+      });
+
+    await expect(service.buyItem(userId, buyItemDTO)).rejects.toThrow(
+      'Insufficient credit',
+    );
   });
 });

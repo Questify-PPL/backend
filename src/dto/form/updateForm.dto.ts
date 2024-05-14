@@ -20,6 +20,14 @@ export class Question {
   questionId?: number;
 
   @ApiProperty({
+    title: 'Question Number',
+    type: Number,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  number: number;
+
+  @ApiProperty({
     title: 'Question Type',
     type: String,
   })
@@ -92,6 +100,14 @@ export class FormQuestion {
   @IsOptional()
   @IsString()
   sectionName?: string;
+
+  @ApiProperty({
+    title: 'Section Number',
+    type: Number,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  number: number;
 
   @ApiProperty({
     title: 'Section Description',
@@ -188,3 +204,21 @@ export class UpdateFormDTO {
   @IsOptional()
   readonly formQuestions?: FormQuestion[];
 }
+
+export type Statistics =
+  | {
+      choices: string[];
+      amounts: number[] | string[];
+    }
+  | string[];
+
+export type SectionWithQuestions = {
+  sectionId: number;
+  sectionName: string;
+  sectionDescription: string;
+  questions: Question[];
+};
+
+export type GroupedQuestion = SectionWithQuestions | Partial<Question>;
+
+export type GroupedQuestions = GroupedQuestion[];
