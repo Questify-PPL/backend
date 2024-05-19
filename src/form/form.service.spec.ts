@@ -378,9 +378,7 @@ describe('FormService', () => {
 
     jest
       .spyOn(lockService, 'acquireLock')
-      .mockImplementation((key: string) =>
-        key === `form-${dummyForms[0].id}` ? false : true,
-      );
+      .mockImplementation((key: string) => key !== `form-${dummyForms[0].id}`);
     jest.spyOn(pityService, 'processWinner').mockImplementation();
     jest.spyOn(lockService, 'releaseLock').mockImplementation();
     jest.spyOn(pityService, 'calculateWinningChance').mockReturnValue(100);
@@ -413,9 +411,7 @@ describe('FormService', () => {
 
     jest
       .spyOn(lockService, 'acquireLock')
-      .mockImplementation((key: string) =>
-        key === 'forms-f100' ? false : true,
-      );
+      .mockImplementation((key: string) => key != 'forms-f100');
     jest.spyOn(lockService, 'acquireLock').mockReturnValue(true);
     jest.spyOn(pityService, 'processWinner').mockResolvedValue(['userId']);
     jest.spyOn(lockService, 'releaseLock').mockImplementation();
@@ -598,10 +594,56 @@ describe('FormService', () => {
     ).rejects.toThrow('Max winner is required for LUCKY prize type');
   });
 
+  it('should throw an error if user doesnt have emptyForms', async () => {
+    jest
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        const prismaMock = {
+          creator: {
+            findUnique: jest.fn().mockResolvedValue({
+              emptyForms: 0,
+            }),
+          },
+          form: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+
+        return prisma(prismaMock as any);
+      });
+
+    const createDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+    };
+
+    await expect(
+      service.createForm('userId', createDTO as any),
+    ).rejects.toThrow(
+      "You don't have any empty form left. Purchase more to create new form",
+    );
+  });
+
   it('should call prismaService.form.create with the correct arguments', async () => {
     jest
-      .spyOn(prismaService.form, 'create')
-      .mockResolvedValue(dummyForm as any);
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        const prismaMock = {
+          creator: {
+            findUnique: jest.fn().mockResolvedValue({
+              emptyForms: 1,
+            }),
+            update: jest.fn().mockResolvedValue({}),
+          },
+          form: {
+            create: jest.fn().mockResolvedValue(dummyForm),
+          },
+        };
+
+        return prisma(prismaMock as any);
+      });
 
     const createDTO = {
       title: '',
