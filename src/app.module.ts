@@ -14,6 +14,7 @@ import { WithdrawalModule } from './withdrawal/withdrawal.module';
 import { PityModule } from './pity/pity.module';
 import { LockModule } from './lock/lock.module';
 import { ReportModule } from './report/report.module';
+import { LinkModule } from './link/link.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ReportModule } from './report/report.module';
     PityModule,
     LockModule,
     ReportModule,
+    LinkModule,
   ],
   controllers: [AppController],
   providers: [AppService],
