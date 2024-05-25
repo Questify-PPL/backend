@@ -343,5 +343,5 @@ model Link {
   formId String @unique
   form   Form   @relation(fields: [formId], references: [id], onDelete: Cascade)
 
-  shortLink String @unique
+  link String @unique
 }

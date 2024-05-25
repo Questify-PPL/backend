@@ -12,9 +12,7 @@ export class LinkService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async getLink(formId: string) {
-    const linkMapping = await this.prismaService.link.findUnique({
-      where: { formId },
-    });
+    const linkMapping = await this.getLinkMappingByFormId(formId);
 
     if (!linkMapping) {
       throw new NotFoundException(`Form id ${formId} has no mapping to link`);
@@ -23,14 +21,12 @@ export class LinkService {
     return {
       statusCode: 200,
       message: `Successfully map form id ${formId} to link`,
-      data: linkMapping.shortLink,
+      data: linkMapping.link,
     };
   }
 
-  async getLinkMapping(link: string) {
-    const linkMapping = await this.prismaService.link.findUnique({
-      where: { shortLink: link },
-    });
+  async getFormIdByLink(link: string) {
+    const linkMapping = await this.getLinkMappingByLink(link);
 
     if (!linkMapping) {
       throw new NotFoundException(`Link ${link} has no mapping to form id`);
@@ -54,9 +50,7 @@ export class LinkService {
       );
     }
 
-    const linkMapping = await this.prismaService.link.findUnique({
-      where: { formId: createLinkDto.formId },
-    });
+    const linkMapping = await this.getLinkMappingByFormId(createLinkDto.formId);
 
     if (linkMapping) {
       throw new BadRequestException(
@@ -64,23 +58,29 @@ export class LinkService {
       );
     }
 
-    let shortLink: string;
+    const existingLinks = await this.getAllLinks();
+
+    let link: string;
     do {
-      shortLink = this.generateRandomString();
-    } while (await this.isLinkExist(shortLink));
+      link = this.generateRandomString();
+    } while (existingLinks.includes(link));
 
     await this.prismaService.link.create({
       data: {
         formId: createLinkDto.formId,
-        shortLink,
+        link,
       },
     });
 
     return {
       statusCode: 201,
-      message: `Successfully create short link for form id ${createLinkDto.formId}`,
-      data: shortLink,
+      message: `Successfully create a link for form id ${createLinkDto.formId}`,
+      data: link,
     };
+  }
+
+  async isLinkExistByFormId(formId: string) {
+    return !!(await this.getLinkMappingByFormId(formId));
   }
 
   private generateRandomString() {
@@ -93,10 +93,22 @@ export class LinkService {
     return randomString;
   }
 
-  private async isLinkExist(shortLink: string): Promise<boolean> {
-    const linkMapping = await this.prismaService.link.findUnique({
-      where: { shortLink },
+  private async getAllLinks() {
+    const linkMappings = await this.prismaService.link.findMany({
+      select: { link: true },
     });
-    return linkMapping !== null;
+    return linkMappings.map((mapping) => mapping.link);
+  }
+
+  private async getLinkMappingByFormId(formId: string) {
+    return await this.prismaService.link.findUnique({
+      where: { formId },
+    });
+  }
+
+  private async getLinkMappingByLink(link: string) {
+    return await this.prismaService.link.findUnique({
+      where: { link },
+    });
   }
 }
