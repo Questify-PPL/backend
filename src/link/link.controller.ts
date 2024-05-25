@@ -20,12 +20,12 @@ export class LinkController {
 
   @Get('/mapping/:link')
   @Roles(Role.CREATOR, Role.RESPONDENT)
-  getLinkMapping(@Param('link') link: string) {
-    return this.linkService.getLinkMapping(link);
+  getFormIdByLink(@Param('link') link: string) {
+    return this.linkService.getFormIdByLink(link);
   }
 
   @Post('/create')
-  @Roles(Role.CREATOR, Role.RESPONDENT)
+  @Roles(Role.ADMIN)
   createLink(@Body() createLinkDto: CreateLinkDto) {
     return this.linkService.createLink(createLinkDto);
   }

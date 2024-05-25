@@ -4,12 +4,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { BadRequestException } from '@nestjs/common';
 import { LockService } from 'src/lock/lock.service';
 import { PityService } from 'src/pity/pity.service';
+import { LinkService } from 'src/link/link.service';
 
 describe('FormService', () => {
   let service: FormService;
   let prismaService: PrismaService;
   let lockService: LockService;
   let pityService: PityService;
+  let linkService: LinkService;
 
   const participation = {
     respondentId: 'u1',
@@ -162,6 +164,10 @@ describe('FormService', () => {
       },
     ],
     Participation: [participation[0]],
+    Link: {
+      formId: 'f1',
+      link: 'abcdefgh',
+    },
   };
 
   const dummyForms = [
@@ -248,6 +254,13 @@ describe('FormService', () => {
         },
         LockService,
         PityService,
+        {
+          provide: LinkService,
+          useValue: {
+            isLinkExistByFormId: jest.fn(),
+            createLink: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -255,6 +268,7 @@ describe('FormService', () => {
     prismaService = module.get<PrismaService>(PrismaService);
     lockService = module.get<LockService>(LockService);
     pityService = module.get<PityService>(PityService);
+    linkService = module.get<LinkService>(LinkService);
   });
 
   it('should be defined', () => {
@@ -279,6 +293,28 @@ describe('FormService', () => {
     });
   });
 
+  it('should include link for every available form', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValueOnce([
+      {
+        formId: 'formId',
+      },
+    ] as any);
+
+    expect(await service.getAllAvailableForm('userId')).toEqual({
+      statusCode: 200,
+      message: 'Successfully get all available form',
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          link: dummyForm.Link.link,
+        }),
+      ]),
+    });
+  });
+
   it('should call prismaService.form.findMany with the correct arguments', async () => {
     jest
       .spyOn(prismaService.form, 'findMany')
@@ -287,6 +323,24 @@ describe('FormService', () => {
     jest.spyOn(prismaService, '$transaction').mockResolvedValueOnce([1, 1]);
 
     expect(await service.getOwnedForm('userId')).toEqual(expect.any(Object));
+  });
+
+  it('should include link for every owned form', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService, '$transaction').mockResolvedValueOnce([1, 1]);
+
+    expect(await service.getOwnedForm('userId')).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form as creator',
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          link: dummyForm.Link.link,
+        }),
+      ]),
+    });
   });
 
   it('should call prismaService.form.findMany with forms type with the correct arguments', async () => {
@@ -332,6 +386,35 @@ describe('FormService', () => {
     jest.spyOn(pityService, 'calculateWinningChance').mockReturnValue(100);
 
     expect(await service.getFilledForm('userId')).toEqual(expect.any(Object));
+  });
+
+  it('should include link for every filled form', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValue(
+      dummyForms.map((dummyForm) => ({
+        form: dummyForm,
+        isCompleted: true,
+        questionAnswered: 0,
+        respondent: respondent,
+        finalWinningChance: participation.finalWinningChance,
+      })) as any,
+    );
+
+    jest.spyOn(lockService, 'acquireLock').mockReturnValue(false);
+    jest.spyOn(pityService, 'calculateWinningChance').mockReturnValue(100);
+
+    expect(await service.getFilledForm('userId')).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form as respondent',
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          link: dummyForm.Link.link,
+        }),
+      ]),
+    });
   });
 
   it('should call prismaService.form.findMany with the correct arguments and form has yet to finish', async () => {
@@ -462,6 +545,21 @@ describe('FormService', () => {
       statusCode: 200,
       message: 'Successfully get form',
       data: expect.any(Object),
+    });
+  });
+
+  it('should include link of the form', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue(dummyForm as any);
+    const userId = 'userId';
+
+    expect(await service.getFormById('formId', 'creator', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.objectContaining({
+        link: dummyForm.Link.link,
+      }),
     });
   });
 
@@ -834,6 +932,103 @@ describe('FormService', () => {
       message: 'Successfully update form',
       data: expect.any(Object),
     });
+  });
+
+  it('should not create a link for unpublished form', async () => {
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      isDraft: true,
+      endedAt: new Date(),
+    };
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.form, 'update')
+      .mockResolvedValue(dummyForm as any);
+
+    jest.spyOn(linkService, 'createLink').mockImplementation();
+
+    expect(
+      await service.updateForm('formId', 'userId', updateDTO as any),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update form',
+      data: expect.any(Object),
+    });
+    expect(linkService.createLink).not.toHaveBeenCalled();
+  });
+
+  it('should create a link when the form is published for the first time', async () => {
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      isPublished: true,
+    };
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.form, 'update')
+      .mockResolvedValue(dummyForm as any);
+
+    jest.spyOn(linkService, 'isLinkExistByFormId').mockResolvedValue(false);
+
+    jest.spyOn(linkService, 'createLink').mockImplementation();
+
+    expect(
+      await service.updateForm('formId', 'userId', updateDTO as any),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update form',
+      data: expect.objectContaining({
+        link: dummyForm.Link.link,
+      }),
+    });
+    expect(linkService.createLink).toHaveBeenCalled();
+  });
+
+  it('should not create a link for republished form', async () => {
+    const formId = 'formId';
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+      isPublished: true,
+    };
+
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId' } as any);
+
+    jest
+      .spyOn(prismaService.form, 'update')
+      .mockResolvedValue(dummyForm as any);
+
+    jest.spyOn(linkService, 'isLinkExistByFormId').mockResolvedValue(true);
+
+    jest.spyOn(linkService, 'createLink').mockImplementation();
+
+    expect(
+      await service.updateForm(formId, 'userId', updateDTO as any),
+    ).toEqual({
+      statusCode: 200,
+      message: 'Successfully update form',
+      data: expect.objectContaining({
+        link: dummyForm.Link.link,
+      }),
+    });
+    expect(linkService.createLink).not.toHaveBeenCalled();
   });
 
   it('should handle error when creating form questions if sectionId and questionId does not exists on database', async () => {
