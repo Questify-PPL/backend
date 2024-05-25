@@ -7,6 +7,7 @@ import {
   Radio,
   Checkbox,
   Answer,
+  Link,
 } from '@prisma/client';
 import {
   CreateFormDTO,
@@ -24,6 +25,7 @@ import { Parser } from 'json2csv';
 import { Response } from 'express';
 import { LockService } from 'src/lock/lock.service';
 import { PityService } from 'src/pity/pity.service';
+import { LinkService } from 'src/link/link.service';
 
 @Injectable()
 export class FormService {
@@ -31,6 +33,7 @@ export class FormService {
     private readonly prismaService: PrismaService,
     private readonly lockService: LockService,
     private readonly pityService: PityService,
+    private readonly linkService: LinkService,
   ) {}
 
   /*  ======================================================
@@ -47,6 +50,10 @@ export class FormService {
           gte: new Date(),
         },
       },
+      include: {
+        Question: true,
+        Link: true,
+      },
     });
 
     const participatingForms = await this.prismaService.participation.findMany({
@@ -58,11 +65,20 @@ export class FormService {
       },
     });
 
-    const filteredForms = forms.filter((form) => {
-      return !participatingForms.some(
-        (participatingForm) => participatingForm.formId === form.id,
-      );
-    });
+    const filteredForms = forms
+      .filter((form) => {
+        return !participatingForms.some(
+          (participatingForm) => participatingForm.formId === form.id,
+        );
+      })
+      .map((form) => {
+        const { Link, Question, ...rest } = form;
+        return {
+          ...rest,
+          link: Link?.link,
+          questionAmount: Question.length,
+        };
+      });
 
     return {
       statusCode: 200,
@@ -151,6 +167,10 @@ export class FormService {
       await this.processQuestions(formQuestions, formId);
     }
 
+    if (isPublished && !(await this.linkService.isLinkExistByFormId(formId))) {
+      await this.linkService.createLink({ formId });
+    }
+
     const updatedForm = await this.prismaService.form.update({
       where: {
         id: formId,
@@ -179,6 +199,7 @@ export class FormService {
           },
         },
         Section: true,
+        Link: true,
       },
     });
 
@@ -625,6 +646,7 @@ export class FormService {
           },
         },
         Section: true,
+        Link: true,
       },
     });
 
@@ -917,6 +939,7 @@ export class FormService {
       },
       include: {
         Question: true,
+        Link: true,
       },
     });
 
@@ -944,8 +967,9 @@ export class FormService {
           completedParticipation,
           questionAmount: form.Question.length,
           isCompleted: form.endedAt !== null && form.endedAt < new Date(),
+          link: form.Link?.link,
         },
-        ['Question'],
+        ['Question', 'Link'],
       );
     });
 
@@ -963,6 +987,7 @@ export class FormService {
             Question: true,
             Winner: true,
             Participation: true,
+            Link: true,
           },
         },
         questionsAnswered: true,
@@ -1008,6 +1033,7 @@ export class FormService {
             'Question',
             'Winner',
             'Participation',
+            'Link',
           ]) as Form),
           questionFilled: participation.questionsAnswered,
           isCompleted:
@@ -1018,6 +1044,7 @@ export class FormService {
           winningChance,
           winningStatus,
           winnerAmount: winnerIds.length,
+          link: participation.form.Link?.link,
         },
         [
           'isDraft',
@@ -1041,6 +1068,7 @@ export class FormService {
         Answer: Answer[];
       })[];
       Section: Section[];
+      Link: Link;
     },
     userId?: string,
     removeAnswer = true,
@@ -1134,8 +1162,9 @@ export class FormService {
             (!form.endedAt || form.endedAt >= new Date()),
         }),
         questionAmount: form.Question.length,
+        link: form.Link.link,
       },
-      ['Question', 'Section'],
+      ['Question', 'Section', 'Link'],
     );
   }
 

@@ -180,6 +180,7 @@ model Form {
 
   isWinnerProcessed Boolean @default(false)
   totalPity         Int     @default(0)
+  Link              Link?
 }
 
 model Section {
@@ -204,7 +205,7 @@ model Participation {
   emailNotificationActive Boolean    @default(true)
   questionsAnswered       Int        @default(0)
   finalWinningChance      Float      @default(0)
-  respondentIsReported      Boolean    @default(false)
+  respondentIsReported    Boolean    @default(false)
 
   @@id([respondentId, formId])
 }
@@ -336,4 +337,11 @@ model Withdrawal {
   amount        Int
   payment       String
   accountNumber String
+}
+
+model Link {
+  formId String @unique
+  form   Form   @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  link String @unique
 }
