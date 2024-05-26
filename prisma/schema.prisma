@@ -206,6 +206,7 @@ model Participation {
   questionsAnswered       Int        @default(0)
   finalWinningChance      Float      @default(0)
   respondentIsReported    Boolean    @default(false)
+  formIsReported          Boolean    @default(false)
 
   @@id([respondentId, formId])
 }

@@ -23,6 +23,9 @@ describe('ReportService', () => {
               findUnique: jest.fn(),
               findFirst: jest.fn().mockResolvedValue(null),
             },
+            form: {
+              findFirst: jest.fn(),
+            },
             $transaction: jest.fn(),
           },
         },
@@ -60,7 +63,7 @@ describe('ReportService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should return created report', async () => {
+  it('should update respondentIsReported attr when respondent is reported', async () => {
     const createReportDTO = {
       reportToId: 'b28e00b9-6162-4f8a-93d3-925a62c89f9a',
       formId: 'ba8e528b-1c22-41b8-9ac1-23592d3bce58',
@@ -96,10 +99,20 @@ describe('ReportService', () => {
         return prisma(prismaMock as any);
       });
 
+    jest.spyOn(service, 'creatorIsReported').mockResolvedValue(false);
+
     const response = await service.create(respondent, createReportDTO);
     expect(response).toEqual(report);
 
-    expect(prismaMock.participation.update).toHaveBeenCalled();
+    expect(prismaMock.participation.update).toHaveBeenCalledWith({
+      where: {
+        respondentId_formId: {
+          formId: createReportDTO.formId,
+          respondentId: createReportDTO.reportToId,
+        },
+      },
+      data: { respondentIsReported: true },
+    });
   });
 
   it('should return bad request error when report already exists', async () => {
@@ -336,13 +349,13 @@ describe('ReportService', () => {
         prismaMock = {
           report: {
             update: jest.fn().mockResolvedValue(updatedReport),
-            aggregate: jest.fn().mockResolvedValue({
-              _count: totalAcceptedReportForBanned,
-            }),
           },
           user: {
             update: jest.fn(),
           },
+          $queryRaw: jest
+            .fn()
+            .mockResolvedValue([{ count: totalAcceptedReportForBanned }]),
         };
 
         return prisma(prismaMock as any);
@@ -365,6 +378,70 @@ describe('ReportService', () => {
       data: {
         isBlocked: true,
       },
+    });
+  });
+
+  it('should return true when creator is reported', async () => {
+    const findFormMock = prismaService.form.findFirst as jest.Mock;
+    findFormMock.mockResolvedValue(null);
+
+    const result = await service.creatorIsReported(
+      'someCreatorId',
+      'someFormId',
+    );
+
+    expect(result).toBeFalsy();
+  });
+
+  it('should update formIsReported attr when creator is reported', async () => {
+    const createReportDTO = {
+      reportToId: 'b28e00b9-6162-4f8a-93d3-925a62c89f9a',
+      formId: 'ba8e528b-1c22-41b8-9ac1-23592d3bce58',
+      message: 'creatornya gk jelas',
+    };
+
+    const report = {
+      toUserId: 'b28e00b9-6162-4f8a-93d3-925a62c89f9a',
+      fromUserId: 'b28e00b9-6162-4f8a-93d3-925a62c89f9a',
+      formId: 'ba8e528b-1c22-41b8-9ac1-23592d3bce58',
+      message: 'creatornya gk jelas',
+      status: ReportStatus.PENDING,
+      createdAt: new Date('2024-04-27T06:36:41.861Z'),
+    };
+
+    const createReportMock = prismaService.report.findFirst as jest.Mock;
+    createReportMock.mockResolvedValue(null);
+
+    let prismaMock;
+
+    jest
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        prismaMock = {
+          report: {
+            create: jest.fn().mockResolvedValue(report),
+          },
+          participation: {
+            update: jest.fn(),
+          },
+        };
+
+        return prisma(prismaMock as any);
+      });
+
+    jest.spyOn(service, 'creatorIsReported').mockResolvedValue(true);
+
+    const response = await service.create(respondent, createReportDTO);
+    expect(response).toEqual(report);
+
+    expect(prismaMock.participation.update).toHaveBeenCalledWith({
+      where: {
+        respondentId_formId: {
+          formId: createReportDTO.formId,
+          respondentId: respondent.id,
+        },
+      },
+      data: { formIsReported: true },
     });
   });
 });

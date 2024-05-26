@@ -1,10 +1,10 @@
-import { Controller, Get, UseGuards, Body, Patch } from '@nestjs/common';
+import { Controller, Get, UseGuards, Body, Patch, Param } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Role, User } from '@prisma/client';
 import { CurrentUser, Roles } from 'src/decorator';
 import { JwtAuthGuard, RolesGuard } from 'src/guard';
 import { UserService } from './user.service';
-import { UpdateProfileDTO } from 'src/dto';
+import { UpdateProfileDTO, UpdateStatusDto } from 'src/dto';
 
 @ApiTags('User')
 @Controller('user')
@@ -24,5 +24,20 @@ export class UserController {
     @CurrentUser() user: User,
   ) {
     return this.userService.updateProfile(user.id, updateProfileDTO);
+  }
+
+  @Get()
+  @Roles(Role.ADMIN)
+  async findAllUsers() {
+    return this.userService.findAllUsers();
+  }
+
+  @Patch(':id')
+  @Roles(Role.ADMIN)
+  async updateUserBlockedStatus(
+    @Param('id') id: string,
+    @Body() updateStatusDTO: UpdateStatusDto,
+  ) {
+    return this.userService.setUserBlockedStatus(id, updateStatusDTO);
   }
 }

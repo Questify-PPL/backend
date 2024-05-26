@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from './user.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { ReportStatus, Role } from '@prisma/client';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
 import { UpdateProfileDTO } from 'src/dto';
@@ -26,6 +26,7 @@ describe('UserService', () => {
             user: {
               update: jest.fn(),
               findUnique: jest.fn(),
+              findMany: jest.fn(),
             },
           },
         },
@@ -215,5 +216,94 @@ describe('UserService', () => {
     expect(errors).toHaveLength(0);
 
     expect(dtoInstance.birthDate).toBeInstanceOf(Date);
+  });
+
+  describe('findAllUsers', () => {
+    it('should return all users', async () => {
+      const users = [
+        {
+          id: 'c29dbf60-380f-466b-a1ba-adc84fc51292',
+          email: 'questify@gmail.com',
+          password: 'questify',
+          roles: [Role.ADMIN, Role.CREATOR, Role.RESPONDENT],
+          ssoUsername: null,
+          firstName: null,
+          lastName: null,
+          phoneNumber: null,
+          gender: null,
+          companyName: null,
+          birthDate: null,
+          credit: 0,
+          isVerified: true,
+          isBlocked: false,
+          hasCompletedProfile: false,
+        },
+        {
+          id: 'c29dbf60-380f-466b-a1ba-adc84fc51293',
+          email: 'questify@gmail.com',
+          password: 'questify',
+          roles: [Role.ADMIN, Role.RESPONDENT],
+          ssoUsername: null,
+          firstName: null,
+          lastName: null,
+          phoneNumber: null,
+          gender: null,
+          companyName: null,
+          birthDate: null,
+          credit: 0,
+          isVerified: true,
+          isBlocked: false,
+          hasCompletedProfile: false,
+        },
+      ];
+      jest.spyOn(prismaService.user, 'findMany').mockResolvedValue(users);
+
+      await service.findAllUsers();
+      expect(prismaService.user.findMany).toHaveBeenCalledWith({
+        include: {
+          Admin: true,
+          Creator: true,
+          Respondent: true,
+          _count: {
+            select: {
+              ReportTo: {
+                where: {
+                  status: ReportStatus.APPROVED,
+                },
+              },
+            },
+          },
+        },
+        orderBy: [
+          {
+            firstName: 'asc',
+          },
+          {
+            email: 'asc',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('setUserBlockedStatus', () => {
+    it('should update user blocked status', async () => {
+      const id = 'someUserId';
+      const updateStatusDTO = {
+        isBlocked: true,
+      };
+
+      await service.setUserBlockedStatus(id, updateStatusDTO);
+
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id },
+        data: { isBlocked: updateStatusDTO.isBlocked },
+        select: {
+          id: true,
+          isBlocked: true,
+          password: false,
+        },
+      });
+    });
   });
 });
