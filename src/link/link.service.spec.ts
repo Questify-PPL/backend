@@ -16,7 +16,7 @@ describe('LinkService', () => {
 
   const linkMapping = {
     formId: validFormId,
-    shortLink: validLink,
+    link: validLink,
   };
 
   const validCreateLinkDto = {
@@ -53,6 +53,7 @@ describe('LinkService', () => {
           useValue: {
             link: {
               findUnique: jest.fn(),
+              findMany: jest.fn(),
               create: jest.fn(),
             },
             form: {
@@ -76,7 +77,7 @@ describe('LinkService', () => {
   });
 
   describe('getLink', () => {
-    it('should return the short link for a valid formId', async () => {
+    it('should return the link for a valid formId', async () => {
       jest
         .spyOn(prismaService.link, 'findUnique')
         .mockResolvedValue(linkMapping);
@@ -85,7 +86,7 @@ describe('LinkService', () => {
 
       expect(result.statusCode).toEqual(200);
       expect(result.message).toContain('Successfully map form id');
-      expect(result.data).toEqual(linkMapping.shortLink);
+      expect(result.data).toEqual(linkMapping.link);
     });
 
     it('should throw NotFoundException if formId has no mapping to link', async () => {
@@ -99,13 +100,13 @@ describe('LinkService', () => {
     });
   });
 
-  describe('getLinkMapping', () => {
+  describe('getFormIdByLink', () => {
     it('should return the formId for a valid link', async () => {
       jest
         .spyOn(prismaService.link, 'findUnique')
         .mockResolvedValue(linkMapping);
 
-      const result = await service.getLinkMapping(validFormId);
+      const result = await service.getFormIdByLink(validFormId);
 
       expect(result.statusCode).toEqual(200);
       expect(result.message).toContain('Successfully map link');
@@ -115,7 +116,7 @@ describe('LinkService', () => {
     it('should throw NotFoundException if link has no mapping to form id', async () => {
       jest.spyOn(prismaService.link, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.getLinkMapping(invalidLink)).rejects.toThrow(
+      await expect(service.getFormIdByLink(invalidLink)).rejects.toThrow(
         new NotFoundException(`Link ${invalidLink} has no mapping to form id`),
       );
     });
@@ -125,32 +126,35 @@ describe('LinkService', () => {
     it('should create a new link mapping', async () => {
       jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(form);
       jest.spyOn(prismaService.link, 'findUnique').mockResolvedValue(null);
-      jest.spyOn(service as any, 'isLinkExist');
+      jest.spyOn(prismaService.link, 'findMany').mockResolvedValue([]);
+      jest.spyOn(service as any, 'getAllLinks');
 
       const result = await service.createLink(validCreateLinkDto);
 
       expect(prismaService.link.create).toHaveBeenCalled();
-      expect((service as any).isLinkExist).toHaveBeenCalledTimes(1);
+      expect((service as any).getAllLinks).toHaveBeenCalledTimes(1);
       expect(result.statusCode).toEqual(201);
-      expect(result.message).toContain('Successfully create short link');
+      expect(result.message).toContain('Successfully create a link');
       expect(result.data).toHaveLength(7);
     });
 
     it('should create a new link mapping if the previous created mapping already exists', async () => {
       jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(form);
+      jest.spyOn(prismaService.link, 'findUnique').mockResolvedValue(null);
       jest
-        .spyOn(prismaService.link, 'findUnique')
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(linkMapping)
-        .mockResolvedValueOnce(null);
-      jest.spyOn(service as any, 'generateRandomString');
+        .spyOn(prismaService.link, 'findMany')
+        .mockResolvedValueOnce([linkMapping])
+        .mockResolvedValueOnce([]);
+      jest
+        .spyOn(service as any, 'generateRandomString')
+        .mockReturnValueOnce(linkMapping.link);
 
       const result = await service.createLink(validCreateLinkDto);
 
       expect(prismaService.link.create).toHaveBeenCalled();
       expect((service as any).generateRandomString).toHaveBeenCalledTimes(2);
       expect(result.statusCode).toEqual(201);
-      expect(result.message).toContain('Successfully create short link');
+      expect(result.message).toContain('Successfully create a link');
       expect(result.data).toHaveLength(7);
     });
 
@@ -175,6 +179,32 @@ describe('LinkService', () => {
           `Link mapping to form id ${validCreateLinkDto.formId} has already exists`,
         ),
       );
+    });
+  });
+
+  describe('isLinkExistByFormId', () => {
+    it('should return true if the form has link', async () => {
+      jest
+        .spyOn(prismaService.link, 'findUnique')
+        .mockResolvedValue(linkMapping);
+
+      const result = await service.isLinkExistByFormId(validFormId);
+
+      expect(prismaService.link.findUnique).toHaveBeenCalledWith({
+        where: { formId: validFormId },
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should return false if the form has no link', async () => {
+      jest.spyOn(prismaService.link, 'findUnique').mockResolvedValue(null);
+
+      const result = await service.isLinkExistByFormId(validFormId);
+
+      expect(prismaService.link.findUnique).toHaveBeenCalledWith({
+        where: { formId: validFormId },
+      });
+      expect(result).toBe(false);
     });
   });
 });

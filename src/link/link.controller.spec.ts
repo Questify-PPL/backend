@@ -14,7 +14,7 @@ describe('LinkController', () => {
           provide: LinkService,
           useValue: {
             getLink: jest.fn(),
-            getLinkMapping: jest.fn(),
+            getFormIdByLink: jest.fn(),
             createLink: jest.fn(),
           },
         },
@@ -41,11 +41,11 @@ describe('LinkController', () => {
     });
   });
 
-  describe('getLinkMapping', () => {
-    it('should call getLinkMapping service method with correct link', async () => {
+  describe('getFormIdByLink', () => {
+    it('should call getFormIdByLink service method with correct link', async () => {
       const link = 'example-link';
-      await controller.getLinkMapping(link);
-      expect(linkService.getLinkMapping).toHaveBeenCalledWith(link);
+      await controller.getFormIdByLink(link);
+      expect(linkService.getFormIdByLink).toHaveBeenCalledWith(link);
     });
   });
 
