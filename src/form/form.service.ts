@@ -1162,7 +1162,7 @@ export class FormService {
             (!form.endedAt || form.endedAt >= new Date()),
         }),
         questionAmount: form.Question.length,
-        link: form.Link.link,
+        link: form.Link?.link,
       },
       ['Question', 'Section', 'Link'],
     );
