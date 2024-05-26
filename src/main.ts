@@ -5,7 +5,9 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  tracer.start();
+  if (process.env.NODE_ENV === 'production') {
+    tracer.start();
+  }
 
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api/v1');

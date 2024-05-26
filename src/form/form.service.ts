@@ -7,6 +7,8 @@ import {
   Radio,
   Checkbox,
   Answer,
+  PrismaClient,
+  Prisma,
   Link,
 } from '@prisma/client';
 import {
@@ -26,6 +28,7 @@ import { Response } from 'express';
 import { LockService } from 'src/lock/lock.service';
 import { PityService } from 'src/pity/pity.service';
 import { LinkService } from 'src/link/link.service';
+import { DefaultArgs } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class FormService {
@@ -135,11 +138,17 @@ export class FormService {
 
     this.validatePrizeType(prizeType, maxWinner);
 
-    const form = await this.prismaService.form.create({
-      data: {
-        ...createFormDTO,
-        creatorId: userId,
-      },
+    const form = await this.prismaService.$transaction(async (ctx) => {
+      await this.validateCreation(ctx, userId);
+
+      const returnedForm = await ctx.form.create({
+        data: {
+          ...createFormDTO,
+          creatorId: userId,
+        },
+      });
+
+      return returnedForm;
     });
 
     return {
@@ -159,7 +168,10 @@ export class FormService {
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
-    await this.validateUserOnForm(formId, userId);
+    const payloadHasUnpublished =
+      (isPublished !== undefined && !isPublished) || isDraft;
+
+    await this.validateUserOnForm(formId, userId, payloadHasUnpublished);
 
     if (updateFormDTO.formQuestions) this.validateFormQuestions(formQuestions);
 
@@ -178,11 +190,11 @@ export class FormService {
       },
       data: {
         ...rest,
-        ...(isPublished && {
+        ...(isPublished !== undefined && {
           isPublished: isPublished,
           isDraft: !isPublished,
         }),
-        ...(isDraft && {
+        ...(isDraft !== undefined && {
           isDraft: isDraft,
           isPublished: !isDraft,
         }),
@@ -653,7 +665,11 @@ export class FormService {
     return returnLatestForm;
   }
 
-  private async validateUserOnForm(formId: string, userId: string) {
+  private async validateUserOnForm(
+    formId: string,
+    userId: string,
+    payloadHasUnpublished = false,
+  ) {
     const form = await this.prismaService.form.findUnique({
       where: {
         id: formId,
@@ -667,6 +683,12 @@ export class FormService {
 
     if (form.creatorId !== userId) {
       throw new BadRequestException('User is not authorized to modify form');
+    }
+
+    if (!payloadHasUnpublished && form.isPublished) {
+      throw new BadRequestException(
+        'Form is published. Please unpublish first.',
+      );
     }
   }
 
@@ -706,6 +728,40 @@ export class FormService {
         'Max winner is required for LUCKY prize type',
       );
     }
+  }
+
+  private async validateCreation(
+    ctx: Omit<
+      PrismaClient<Prisma.PrismaClientOptions, never, DefaultArgs>,
+      '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+    >,
+    userId: string,
+  ) {
+    const { emptyForms } = await ctx.creator.findUnique({
+      where: {
+        userId: userId,
+      },
+      select: {
+        emptyForms: true,
+      },
+    });
+
+    if (emptyForms <= 0) {
+      throw new BadRequestException(
+        "You don't have any empty form left. Purchase more to create new form",
+      );
+    }
+
+    await ctx.creator.update({
+      where: {
+        userId: userId,
+      },
+      data: {
+        emptyForms: {
+          decrement: 1,
+        },
+      },
+    });
   }
 
   private validateFormQuestions(formQuestions: FormQuestion[]) {
@@ -994,6 +1050,8 @@ export class FormService {
         isCompleted: true,
         respondent: true,
         finalWinningChance: true,
+        formIsReported: true,
+        notificationRead: true,
       },
     });
 
@@ -1045,6 +1103,8 @@ export class FormService {
           winningStatus,
           winnerAmount: winnerIds.length,
           link: participation.form.Link?.link,
+          notificationRead: participation.notificationRead,
+          formIsReported: participation.formIsReported,
         },
         [
           'isDraft',
@@ -1162,7 +1222,7 @@ export class FormService {
             (!form.endedAt || form.endedAt >= new Date()),
         }),
         questionAmount: form.Question.length,
-        link: form.Link.link,
+        link: form.Link?.link,
       },
       ['Question', 'Section', 'Link'],
     );
@@ -1175,17 +1235,36 @@ export class FormService {
   }
 
   private async validateParticipation(formId: string, userId: string) {
-    const participation = await this.prismaService.participation.findUnique({
-      where: {
-        respondentId_formId: {
-          formId,
-          respondentId: userId,
+    const [participation, form] = await Promise.all([
+      this.prismaService.participation.findUnique({
+        where: {
+          respondentId_formId: {
+            formId,
+            respondentId: userId,
+          },
         },
-      },
-    });
+      }),
+      this.prismaService.form.findUnique({
+        where: {
+          id: formId,
+        },
+      }),
+    ]);
+
+    if (!form) {
+      throw new BadRequestException('Form not found');
+    }
 
     if (!participation) {
       throw new BadRequestException('Participation not found');
+    }
+
+    if (!form.isPublished) {
+      throw new BadRequestException('Form is not published');
+    }
+
+    if (form.endedAt && form.endedAt < new Date()) {
+      throw new BadRequestException('Form has ended');
     }
 
     if (participation.respondentId !== userId) {

@@ -461,9 +461,7 @@ describe('FormService', () => {
 
     jest
       .spyOn(lockService, 'acquireLock')
-      .mockImplementation((key: string) =>
-        key === `form-${dummyForms[0].id}` ? false : true,
-      );
+      .mockImplementation((key: string) => key !== `form-${dummyForms[0].id}`);
     jest.spyOn(pityService, 'processWinner').mockImplementation();
     jest.spyOn(lockService, 'releaseLock').mockImplementation();
     jest.spyOn(pityService, 'calculateWinningChance').mockReturnValue(100);
@@ -496,9 +494,7 @@ describe('FormService', () => {
 
     jest
       .spyOn(lockService, 'acquireLock')
-      .mockImplementation((key: string) =>
-        key === 'forms-f100' ? false : true,
-      );
+      .mockImplementation((key: string) => key != 'forms-f100');
     jest.spyOn(lockService, 'acquireLock').mockReturnValue(true);
     jest.spyOn(pityService, 'processWinner').mockResolvedValue(['userId']);
     jest.spyOn(lockService, 'releaseLock').mockImplementation();
@@ -696,10 +692,56 @@ describe('FormService', () => {
     ).rejects.toThrow('Max winner is required for LUCKY prize type');
   });
 
+  it('should throw an error if user doesnt have emptyForms', async () => {
+    jest
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        const prismaMock = {
+          creator: {
+            findUnique: jest.fn().mockResolvedValue({
+              emptyForms: 0,
+            }),
+          },
+          form: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+
+        return prisma(prismaMock as any);
+      });
+
+    const createDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+    };
+
+    await expect(
+      service.createForm('userId', createDTO as any),
+    ).rejects.toThrow(
+      "You don't have any empty form left. Purchase more to create new form",
+    );
+  });
+
   it('should call prismaService.form.create with the correct arguments', async () => {
     jest
-      .spyOn(prismaService.form, 'create')
-      .mockResolvedValue(dummyForm as any);
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        const prismaMock = {
+          creator: {
+            findUnique: jest.fn().mockResolvedValue({
+              emptyForms: 1,
+            }),
+            update: jest.fn().mockResolvedValue({}),
+          },
+          form: {
+            create: jest.fn().mockResolvedValue(dummyForm),
+          },
+        };
+
+        return prisma(prismaMock as any);
+      });
 
     const createDTO = {
       title: '',
@@ -834,6 +876,23 @@ describe('FormService', () => {
     await expect(
       service.updateForm('formId', 'userId', updateDTO as any),
     ).rejects.toThrow('Question is required for DEFAULT type');
+  });
+
+  it('should throw an error if form is published AND not marked as changing the form to draft or vice versa', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue({ creatorId: 'userId', isPublished: true } as any);
+
+    const updateDTO = {
+      title: '',
+      prize: 20000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+    };
+
+    await expect(
+      service.updateForm('formId', 'userId', updateDTO as any),
+    ).rejects.toThrow('Form is published. Please unpublish first.');
   });
 
   it('should call prismaService.form.update with the correct arguments to make form drafted again', async () => {
@@ -1527,6 +1586,14 @@ describe('FormService', () => {
     ).toEqual(undefined);
   });
 
+  it('should throw error if form is not found when updating participation', async () => {
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue(null as any);
+
+    expect(
+      service.updateParticipation('formId', 'userId', updateParticipationDTO),
+    ).rejects.toThrow('Form not found');
+  });
+
   it('should throw error if participation is not found', async () => {
     jest
       .spyOn(prismaService.participation, 'findUnique')
@@ -1537,9 +1604,45 @@ describe('FormService', () => {
     ).rejects.toThrow('Participation not found');
   });
 
+  it('should throw error if form is not published', async () => {
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: 'userId',
+      isCompleted: false,
+    } as any);
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      isPublished: false,
+    } as any);
+
+    expect(
+      service.updateParticipation('formId', 'userId', updateParticipationDTO),
+    ).rejects.toThrow('Form is not published');
+  });
+
+  it('should throw error if form is already ended', async () => {
+    jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
+      respondentId: 'userId',
+      isCompleted: false,
+    } as any);
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      isPublished: true,
+      endedAt: new Date(new Date().getTime() - 1000 * 60 * 60 * 24 * 7),
+    } as any);
+
+    expect(
+      service.updateParticipation('formId', 'userId', updateParticipationDTO),
+    ).rejects.toThrow('Form has ended');
+  });
+
   it('should throw error if respondent is not the authorized', async () => {
     jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
       respondentId: 'otherUserId',
+    } as any);
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      isPublished: true,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
     } as any);
 
     expect(
@@ -1551,6 +1654,11 @@ describe('FormService', () => {
     jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
       respondentId: 'userId',
       isCompleted: true,
+    } as any);
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      isPublished: true,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
     } as any);
 
     const updateParticipationDTO = {
@@ -1566,6 +1674,11 @@ describe('FormService', () => {
     jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
       respondentId: 'userId',
       isCompleted: false,
+    } as any);
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      isPublished: true,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
     } as any);
 
     jest.spyOn(prismaService.answer, 'upsert').mockRejectedValue({} as any);
@@ -1597,6 +1710,11 @@ describe('FormService', () => {
       isCompleted: false,
     } as any);
 
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      isPublished: true,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
+    } as any);
+
     jest
       .spyOn(prismaService.participation, 'update')
       .mockRejectedValue({} as any);
@@ -1616,6 +1734,11 @@ describe('FormService', () => {
     jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
       respondentId: 'userId',
       isCompleted: false,
+    } as any);
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      isPublished: true,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
     } as any);
 
     jest
@@ -1645,6 +1768,11 @@ describe('FormService', () => {
     jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
       respondentId: 'userId',
       isCompleted: false,
+    } as any);
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      isPublished: true,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
     } as any);
 
     jest
@@ -1679,6 +1807,11 @@ describe('FormService', () => {
     jest.spyOn(prismaService.participation, 'findUnique').mockResolvedValue({
       respondentId: 'userId',
       isCompleted: false,
+    } as any);
+
+    jest.spyOn(prismaService.form, 'findUnique').mockResolvedValue({
+      isPublished: true,
+      endedAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7),
     } as any);
 
     jest
