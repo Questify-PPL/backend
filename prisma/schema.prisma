@@ -208,6 +208,8 @@ model Participation {
   respondentIsReported    Boolean    @default(false)
   formIsReported          Boolean    @default(false)
 
+  notificationRead Boolean @default(false)
+
   @@id([respondentId, formId])
 }
 
