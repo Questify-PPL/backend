@@ -76,6 +76,7 @@ describe('PityService', () => {
         questionsAnswered: 25,
         finalWinningChance: 0,
         respondentIsReported: false,
+        notificationRead: false,
         formIsReported: false,
       },
       {
@@ -86,6 +87,7 @@ describe('PityService', () => {
         questionsAnswered: 25,
         finalWinningChance: 0,
         respondentIsReported: false,
+        notificationRead: false,
         formIsReported: false,
       },
       {
@@ -97,6 +99,7 @@ describe('PityService', () => {
         finalWinningChance: 0,
         respondentIsReported: false,
         formIsReported: false,
+        notificationRead: false,
       },
       {
         respondentId: 'u4',
@@ -107,6 +110,7 @@ describe('PityService', () => {
         finalWinningChance: 0,
         respondentIsReported: false,
         formIsReported: false,
+        notificationRead: false,
       },
       {
         respondentId: 'u5',
@@ -116,6 +120,7 @@ describe('PityService', () => {
         questionsAnswered: 25,
         finalWinningChance: 0,
         respondentIsReported: false,
+        notificationRead: false,
         formIsReported: false,
       },
     ];

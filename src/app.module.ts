@@ -15,6 +15,7 @@ import { PityModule } from './pity/pity.module';
 import { LockModule } from './lock/lock.module';
 import { ReportModule } from './report/report.module';
 import { LinkModule } from './link/link.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { LinkModule } from './link/link.module';
     LockModule,
     ReportModule,
     LinkModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
