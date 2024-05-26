@@ -1037,6 +1037,7 @@ export class FormService {
         isCompleted: true,
         respondent: true,
         finalWinningChance: true,
+        formIsReported: true,
       },
     });
 
@@ -1088,6 +1089,7 @@ export class FormService {
           winningStatus,
           winnerAmount: winnerIds.length,
           link: participation.form.Link?.link,
+          formIsReported: participation.formIsReported,
         },
         [
           'isDraft',

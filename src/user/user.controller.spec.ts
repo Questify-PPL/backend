@@ -39,6 +39,18 @@ describe('UserController', () => {
     expect(userService.findUserByRole).toHaveBeenCalled();
   });
 
+  it('should return all users', async () => {
+    jest.spyOn(userService, 'findAllUsers').mockImplementation();
+    await controller.findAllUsers();
+    expect(userService.findAllUsers).toHaveBeenCalled();
+  });
+
+  it('should update user status', async () => {
+    jest.spyOn(userService, 'setUserBlockedStatus').mockImplementation();
+    await controller.updateUserBlockedStatus('someId', { isBlocked: true });
+    expect(userService.setUserBlockedStatus).toHaveBeenCalled();
+  });
+
   describe('updateProfile', () => {
     it('should call updateProfile with the current user ID and updateProfileDTO', async () => {
       enum Gender {

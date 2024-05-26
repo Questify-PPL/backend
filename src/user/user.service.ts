@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { UpdateProfileDTO } from 'src/dto';
+import { UpdateProfileDTO, UpdateStatusDto } from 'src/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { User, Role } from '@prisma/client';
+import { User, Role, ReportStatus } from '@prisma/client';
 import { exclude } from 'src/utils';
 
 @Injectable()
@@ -49,5 +49,48 @@ export class UserService {
     });
 
     return exclude(user, ['password']);
+  }
+
+  async findAllUsers() {
+    const users = await this.prismaService.user.findMany({
+      include: {
+        Admin: true,
+        Creator: true,
+        Respondent: true,
+        _count: {
+          select: {
+            ReportTo: {
+              where: {
+                status: ReportStatus.APPROVED,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        {
+          firstName: 'asc',
+        },
+        {
+          email: 'asc',
+        },
+      ],
+    });
+
+    return users.map((user) => exclude(user, ['password']));
+  }
+
+  async setUserBlockedStatus(id: string, updateStatusDTO: UpdateStatusDto) {
+    const updatedUser = await this.prismaService.user.update({
+      where: { id },
+      data: { isBlocked: updateStatusDTO.isBlocked },
+      select: {
+        id: true,
+        isBlocked: true,
+        password: false,
+      },
+    });
+
+    return updatedUser;
   }
 }

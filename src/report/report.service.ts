@@ -36,22 +36,48 @@ export class ReportService {
         },
       });
 
-      await tx.participation.update({
-        where: {
-          respondentId_formId: {
-            formId: createReportDto.formId,
-            respondentId: createReportDto.reportToId,
+      const creatorIsReported = await this.creatorIsReported(
+        createReportDto.reportToId,
+        createReportDto.formId,
+      );
+
+      if (creatorIsReported) {
+        await tx.participation.update({
+          where: {
+            respondentId_formId: {
+              formId: createReportDto.formId,
+              respondentId: user.id,
+            },
           },
-        },
-        data: {
-          respondentIsReported: true,
-        },
-      });
+          data: { formIsReported: true },
+        });
+      } else {
+        await tx.participation.update({
+          where: {
+            respondentId_formId: {
+              formId: createReportDto.formId,
+              respondentId: createReportDto.reportToId,
+            },
+          },
+          data: { respondentIsReported: true },
+        });
+      }
 
       return report;
     });
 
     return report;
+  }
+
+  async creatorIsReported(creatorId: string, formId: string) {
+    const isReported = await this.prismaService.form.findFirst({
+      where: {
+        creatorId,
+        id: formId,
+      },
+    });
+
+    return isReported !== null;
   }
 
   async findAll(query: FindQueryDto = {}) {
@@ -130,17 +156,17 @@ export class ReportService {
       });
 
       if (report.status === ReportStatus.APPROVED) {
-        // Check total approved reports from reported user
-        const aggregations = await tx.report.aggregate({
-          _count: true,
-          where: {
-            toUserId: report.toUserId,
-            status: ReportStatus.APPROVED,
-          },
-        });
+        // Check total approved reports from reported respondent
+        const [{ count }] = await tx.$queryRaw<{ count: number }[]>`
+          select count(*)
+          from "Report" R
+                  join "Participation" P on R."toUserId" = P."respondentId" and R."formId" = P."formId"
+          where R.status = 'APPROVED'
+            and R."toUserId" = ${report.toUserId};
+        `;
 
         // Check for banning user
-        if (aggregations._count >= totalAcceptedReportForBanned) {
+        if (count >= totalAcceptedReportForBanned) {
           await tx.user.update({
             where: {
               id: report.toUserId,
