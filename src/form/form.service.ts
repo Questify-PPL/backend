@@ -7,6 +7,8 @@ import {
   Radio,
   Checkbox,
   Answer,
+  PrismaClient,
+  Prisma,
   Link,
 } from '@prisma/client';
 import {
@@ -26,6 +28,7 @@ import { Response } from 'express';
 import { LockService } from 'src/lock/lock.service';
 import { PityService } from 'src/pity/pity.service';
 import { LinkService } from 'src/link/link.service';
+import { DefaultArgs } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class FormService {
@@ -135,11 +138,17 @@ export class FormService {
 
     this.validatePrizeType(prizeType, maxWinner);
 
-    const form = await this.prismaService.form.create({
-      data: {
-        ...createFormDTO,
-        creatorId: userId,
-      },
+    const form = await this.prismaService.$transaction(async (ctx) => {
+      await this.validateCreation(ctx, userId);
+
+      const returnedForm = await ctx.form.create({
+        data: {
+          ...createFormDTO,
+          creatorId: userId,
+        },
+      });
+
+      return returnedForm;
     });
 
     return {
@@ -706,6 +715,40 @@ export class FormService {
         'Max winner is required for LUCKY prize type',
       );
     }
+  }
+
+  private async validateCreation(
+    ctx: Omit<
+      PrismaClient<Prisma.PrismaClientOptions, never, DefaultArgs>,
+      '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+    >,
+    userId: string,
+  ) {
+    const { emptyForms } = await ctx.creator.findUnique({
+      where: {
+        userId: userId,
+      },
+      select: {
+        emptyForms: true,
+      },
+    });
+
+    if (emptyForms <= 0) {
+      throw new BadRequestException(
+        "You don't have any empty form left. Purchase more to create new form",
+      );
+    }
+
+    await ctx.creator.update({
+      where: {
+        userId: userId,
+      },
+      data: {
+        emptyForms: {
+          decrement: 1,
+        },
+      },
+    });
   }
 
   private validateFormQuestions(formQuestions: FormQuestion[]) {
