@@ -159,7 +159,10 @@ export class FormService {
 
     this.validatePrizeType(rest.prizeType, rest.maxWinner);
 
-    await this.validateUserOnForm(formId, userId);
+    const payloadHasUnpublished =
+      (isPublished !== undefined && !isPublished) || isDraft;
+
+    await this.validateUserOnForm(formId, userId, payloadHasUnpublished);
 
     if (updateFormDTO.formQuestions) this.validateFormQuestions(formQuestions);
 
@@ -178,11 +181,11 @@ export class FormService {
       },
       data: {
         ...rest,
-        ...(isPublished && {
+        ...(isPublished !== undefined && {
           isPublished: isPublished,
           isDraft: !isPublished,
         }),
-        ...(isDraft && {
+        ...(isDraft !== undefined && {
           isDraft: isDraft,
           isPublished: !isDraft,
         }),
@@ -653,7 +656,11 @@ export class FormService {
     return returnLatestForm;
   }
 
-  private async validateUserOnForm(formId: string, userId: string) {
+  private async validateUserOnForm(
+    formId: string,
+    userId: string,
+    payloadHasUnpublished = false,
+  ) {
     const form = await this.prismaService.form.findUnique({
       where: {
         id: formId,
@@ -667,6 +674,12 @@ export class FormService {
 
     if (form.creatorId !== userId) {
       throw new BadRequestException('User is not authorized to modify form');
+    }
+
+    if (!payloadHasUnpublished && form.isPublished) {
+      throw new BadRequestException(
+        'Form is published. Please unpublish first.',
+      );
     }
   }
 
@@ -1175,17 +1188,36 @@ export class FormService {
   }
 
   private async validateParticipation(formId: string, userId: string) {
-    const participation = await this.prismaService.participation.findUnique({
-      where: {
-        respondentId_formId: {
-          formId,
-          respondentId: userId,
+    const [participation, form] = await Promise.all([
+      this.prismaService.participation.findUnique({
+        where: {
+          respondentId_formId: {
+            formId,
+            respondentId: userId,
+          },
         },
-      },
-    });
+      }),
+      this.prismaService.form.findUnique({
+        where: {
+          id: formId,
+        },
+      }),
+    ]);
+
+    if (!form) {
+      throw new BadRequestException('Form not found');
+    }
 
     if (!participation) {
       throw new BadRequestException('Participation not found');
+    }
+
+    if (!form.isPublished) {
+      throw new BadRequestException('Form is not published');
+    }
+
+    if (form.endedAt && form.endedAt < new Date()) {
+      throw new BadRequestException('Form has ended');
     }
 
     if (participation.respondentId !== userId) {
