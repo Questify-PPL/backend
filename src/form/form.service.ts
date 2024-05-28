@@ -146,7 +146,7 @@ export class FormService {
     this.validatePrizeType(prizeType, maxWinner);
 
     const form = await this.prismaService.$transaction(async (ctx) => {
-      await this.validateCreation(ctx, userId);
+      await this.validateCreation(ctx, userId, createFormDTO.prize);
 
       const returnedForm = await ctx.form.create({
         data: {
@@ -743,19 +743,31 @@ export class FormService {
       '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
     >,
     userId: string,
+    prize: number,
   ) {
-    const { emptyForms } = await ctx.creator.findUnique({
+    const { emptyForms, user } = await ctx.creator.findUnique({
       where: {
         userId: userId,
       },
       select: {
         emptyForms: true,
+        user: {
+          select: {
+            credit: true,
+          },
+        },
       },
     });
 
     if (emptyForms <= 0) {
       throw new BadRequestException(
         "You don't have any empty form left. Purchase more to create new form",
+      );
+    }
+
+    if (user.credit < prize) {
+      throw new BadRequestException(
+        'Insufficient credit to create form. Please top up your credit',
       );
     }
 
@@ -766,6 +778,13 @@ export class FormService {
       data: {
         emptyForms: {
           decrement: 1,
+        },
+        user: {
+          update: {
+            credit: {
+              decrement: prize,
+            },
+          },
         },
       },
     });
