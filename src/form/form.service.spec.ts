@@ -16,7 +16,7 @@ describe('FormService', () => {
   const participation = {
     respondentId: 'u1',
     formId: 'f1',
-    isCompleted: true,
+    isCompleted: false,
     emailNotificationActive: false,
     questionsAnswered: 25,
     finalWinningChance: 0,
@@ -168,6 +168,7 @@ describe('FormService', () => {
       formId: 'f1',
       link: 'abcdefgh',
     },
+    totalPity: 0,
   };
 
   const dummyForms = [
@@ -249,6 +250,9 @@ describe('FormService', () => {
               count: jest.fn().mockResolvedValue(0),
               findMany: jest.fn().mockResolvedValue([]),
             },
+            respondent: {
+              findUnique: jest.fn().mockResolvedValue(respondent),
+            },
             $transaction: jest.fn(),
           },
         },
@@ -310,6 +314,28 @@ describe('FormService', () => {
       data: expect.arrayContaining([
         expect.objectContaining({
           link: dummyForm.Link.link,
+        }),
+      ]),
+    });
+  });
+
+  it('should include winning chance for every available form', async () => {
+    jest
+      .spyOn(prismaService.form, 'findMany')
+      .mockResolvedValue(dummyForms as any);
+
+    jest.spyOn(prismaService.participation, 'findMany').mockResolvedValueOnce([
+      {
+        formId: 'formId',
+      },
+    ] as any);
+
+    expect(await service.getAllAvailableForm('userId')).toEqual({
+      statusCode: 200,
+      message: 'Successfully get all available form',
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          winningChance: expect.any(Number),
         }),
       ]),
     });
@@ -555,6 +581,36 @@ describe('FormService', () => {
       message: 'Successfully get form',
       data: expect.objectContaining({
         link: dummyForm.Link.link,
+      }),
+    });
+  });
+
+  it('should include winning chance of the form', async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue(dummyForm as any);
+    const userId = 'userId';
+
+    expect(await service.getFormById('formId', 'respondent', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.objectContaining({
+        winningChance: expect.any(Number),
+      }),
+    });
+  });
+
+  it("should be undefined for creator's winning chance of the form", async () => {
+    jest
+      .spyOn(prismaService.form, 'findUnique')
+      .mockResolvedValue(dummyForm as any);
+    const userId = 'userId';
+
+    expect(await service.getFormById('formId', 'creator', userId)).toEqual({
+      statusCode: 200,
+      message: 'Successfully get form',
+      data: expect.objectContaining({
+        winningChance: undefined,
       }),
     });
   });

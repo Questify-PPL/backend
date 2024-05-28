@@ -66,6 +66,24 @@ export class FormService {
       },
     });
 
+    const respondent = await this.getRespondentByUserId(userId);
+
+    const formsWithStats = await Promise.all(
+      forms.map(async (form) => {
+        const winningChance = this.pityService.calculateWinningChance(
+          respondent,
+          form,
+          false,
+          0,
+        );
+
+        return {
+          ...form,
+          winningChance,
+        };
+      }),
+    );
+
     const participatingForms = await this.prismaService.participation.findMany({
       where: {
         respondentId: userId,
@@ -75,7 +93,7 @@ export class FormService {
       },
     });
 
-    const filteredForms = forms
+    const filteredForms = formsWithStats
       .filter((form) => {
         return !participatingForms.some(
           (participatingForm) => participatingForm.formId === form.id,
@@ -1207,6 +1225,7 @@ export class FormService {
     ];
 
     let participation;
+    let winningChance: number;
 
     if (userId) {
       participation = await this.prismaService.participation.findUnique({
@@ -1217,6 +1236,15 @@ export class FormService {
           },
         },
       });
+
+      const respondent = await this.getRespondentByUserId(userId);
+
+      winningChance = this.pityService.calculateWinningChance(
+        respondent,
+        form,
+        participation.isCompleted,
+        participation.finalWinningChance,
+      );
     }
 
     return this.excludeKeys(
@@ -1230,9 +1258,16 @@ export class FormService {
         }),
         questionAmount: form.Question.length,
         link: form.Link?.link,
+        winningChance: winningChance,
       },
       ['Question', 'Section', 'Link'],
     );
+  }
+
+  private async getRespondentByUserId(userId: string) {
+    return await this.prismaService.respondent.findUnique({
+      where: { userId: userId },
+    });
   }
 
   private excludeKeys<T, K extends keyof T>(form: T, keys: K[]): Omit<T, K> {
