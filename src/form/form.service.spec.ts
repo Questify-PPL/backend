@@ -724,6 +724,41 @@ describe('FormService', () => {
     );
   });
 
+  it("should throw an error if user doesn't have sufficient balance to create form", async () => {
+    jest
+      .spyOn(prismaService, '$transaction')
+      .mockImplementation(async (prisma) => {
+        const prismaMock = {
+          creator: {
+            findUnique: jest.fn().mockResolvedValue({
+              emptyForms: 1,
+              user: {
+                credit: 20,
+              },
+            }),
+          },
+          form: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+
+        return prisma(prismaMock as any);
+      });
+
+    const createDTO = {
+      title: '',
+      prize: 10000000000,
+      prizeType: 'LUCKY',
+      maxWinner: 1,
+    };
+
+    await expect(
+      service.createForm('userId', createDTO as any),
+    ).rejects.toThrow(
+      'Insufficient credit to create form. Please top up your credit',
+    );
+  });
+
   it('should call prismaService.form.create with the correct arguments', async () => {
     jest
       .spyOn(prismaService, '$transaction')
@@ -732,6 +767,9 @@ describe('FormService', () => {
           creator: {
             findUnique: jest.fn().mockResolvedValue({
               emptyForms: 1,
+              user: {
+                credit: 20000,
+              },
             }),
             update: jest.fn().mockResolvedValue({}),
           },
