@@ -49,15 +49,40 @@ export class FormService {
       where: {
         isPublished: true,
         isDraft: false,
-        endedAt: {
-          gte: new Date(),
-        },
+        OR: [
+          {
+            endedAt: null,
+          },
+          {
+            endedAt: {
+              gt: new Date(),
+            },
+          },
+        ],
       },
       include: {
         Question: true,
         Link: true,
       },
     });
+
+    const respondent = await this.getRespondentByUserId(userId);
+
+    const formsWithStats = await Promise.all(
+      forms.map(async (form) => {
+        const winningChance = this.pityService.calculateWinningChance(
+          respondent,
+          form,
+          false,
+          0,
+        );
+
+        return {
+          ...form,
+          winningChance,
+        };
+      }),
+    );
 
     const participatingForms = await this.prismaService.participation.findMany({
       where: {
@@ -68,7 +93,7 @@ export class FormService {
       },
     });
 
-    const filteredForms = forms
+    const filteredForms = formsWithStats
       .filter((form) => {
         return !participatingForms.some(
           (participatingForm) => participatingForm.formId === form.id,
@@ -139,7 +164,7 @@ export class FormService {
     this.validatePrizeType(prizeType, maxWinner);
 
     const form = await this.prismaService.$transaction(async (ctx) => {
-      await this.validateCreation(ctx, userId);
+      await this.validateCreation(ctx, userId, createFormDTO.prize);
 
       const returnedForm = await ctx.form.create({
         data: {
@@ -736,19 +761,31 @@ export class FormService {
       '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
     >,
     userId: string,
+    prize: number,
   ) {
-    const { emptyForms } = await ctx.creator.findUnique({
+    const { emptyForms, user } = await ctx.creator.findUnique({
       where: {
         userId: userId,
       },
       select: {
         emptyForms: true,
+        user: {
+          select: {
+            credit: true,
+          },
+        },
       },
     });
 
     if (emptyForms <= 0) {
       throw new BadRequestException(
         "You don't have any empty form left. Purchase more to create new form",
+      );
+    }
+
+    if (user.credit < prize) {
+      throw new BadRequestException(
+        'Insufficient credit to create form. Please top up your credit',
       );
     }
 
@@ -759,6 +796,13 @@ export class FormService {
       data: {
         emptyForms: {
           decrement: 1,
+        },
+        user: {
+          update: {
+            credit: {
+              decrement: prize,
+            },
+          },
         },
       },
     });
@@ -1200,6 +1244,7 @@ export class FormService {
     ];
 
     let participation;
+    let winningChance: number;
 
     if (userId) {
       participation = await this.prismaService.participation.findUnique({
@@ -1210,6 +1255,15 @@ export class FormService {
           },
         },
       });
+
+      const respondent = await this.getRespondentByUserId(userId);
+
+      winningChance = this.pityService.calculateWinningChance(
+        respondent,
+        form,
+        participation.isCompleted,
+        participation.finalWinningChance,
+      );
     }
 
     return this.excludeKeys(
@@ -1223,9 +1277,16 @@ export class FormService {
         }),
         questionAmount: form.Question.length,
         link: form.Link?.link,
+        winningChance: winningChance,
       },
       ['Question', 'Section', 'Link'],
     );
+  }
+
+  private async getRespondentByUserId(userId: string) {
+    return await this.prismaService.respondent.findUnique({
+      where: { userId: userId },
+    });
   }
 
   private excludeKeys<T, K extends keyof T>(form: T, keys: K[]): Omit<T, K> {
