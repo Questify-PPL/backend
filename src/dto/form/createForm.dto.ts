@@ -47,4 +47,11 @@ export class CreateFormDTO {
   @IsOptional()
   @IsNumber()
   readonly maxWinner?: number;
+
+  @ApiProperty({
+    title: 'Ended At',
+    type: Date,
+  })
+  @IsOptional()
+  readonly endedAt?: Date;
 }

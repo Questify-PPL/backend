@@ -49,9 +49,16 @@ export class FormService {
       where: {
         isPublished: true,
         isDraft: false,
-        endedAt: {
-          gte: new Date(),
-        },
+        OR: [
+          {
+            endedAt: null,
+          },
+          {
+            endedAt: {
+              gt: new Date(),
+            },
+          },
+        ],
       },
       include: {
         Question: true,
